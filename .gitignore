@@ -1,0 +1,4 @@
+*.o
+CMakeCache.txt
+CMakeFiles
+
