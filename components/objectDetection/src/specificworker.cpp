@@ -141,6 +141,7 @@ void SpecificWorker::compute()
 void SpecificWorker::computeObjectScene(pcl::PointCloud<PointT>::Ptr obj_scene, ObjectType *Obj, SpecificWorker *s)
 {
 	std::vector<DESCRIPTORS::file_dist_t> descriptor_guesses;
+	printf("Descriptors: %d\n", descriptor_guesses.size());
 	// s->matcher_mutex.lock();
 	s->descriptor_matcher->doTheGuess(obj_scene, descriptor_guesses);
 	// s->matcher_mutex.unlock();
@@ -636,8 +637,8 @@ void  SpecificWorker::getPose(ObjectType &Obj, string file_view_mathing, 	pcl::P
 	scene  = PointCloudfrom_mm_to_Meters(scene);
 	object = PointCloudfrom_mm_to_Meters(object);
 #if DEBUG
-	writer.write<PointT> ("/home/robocomp/robocomp/components/prp/objects/seen.pcd", *scene, false);
-	writer.write<PointT> ("/home/robocomp/robocomp/components/prp/objects/saved.pcd", *object, false);
+	writer.write<PointT> ("/home/robocomp/robocomp/components/objects/seen.pcd", *scene, false);
+	writer.write<PointT> ("/home/robocomp/robocomp/components/objects/saved.pcd", *object, false);
 #endif
 // 	-------------------------------------------------------------------
 
@@ -648,8 +649,8 @@ void  SpecificWorker::getPose(ObjectType &Obj, string file_view_mathing, 	pcl::P
 	else if(type_fitting == "ICP")
 		saveToViewR = fittingICP(object,scene,object_aligned);
 #if DEBUG
- 	writer.write<PointT> ("/home/robocomp/robocomp/components/prp/objects/scene.pcd", *scene, false);
- 	writer.write<PointT> ("/home/robocomp/robocomp/components/prp/objects/objectaling.pcd", *object_aligned, false);
+ 	writer.write<PointT> ("/home/robocomp/robocomp/components/objects/scene.pcd", *scene, false);
+ 	writer.write<PointT> ("/home/robocomp/robocomp/components/objects/objectaling.pcd", *object_aligned, false);
 #endif
 	string node_name = file_view_mathing.substr(0, file_view_mathing.find_last_of("."));
 	node_name        = node_name.substr(node_name.find_last_of("/")+1);

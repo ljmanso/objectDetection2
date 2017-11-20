@@ -339,6 +339,7 @@ void DESCRIPTORS::nearestKSearch (flann::Index<flann::ChiSquareDistance<float> >
 	index.knnSearch (p, indices, distances, k, flann::SearchParams (512));
 	delete[] p.ptr ();
 }
+
 void DESCRIPTORS::doTheGuess(const pcl::PointCloud<PointT>::Ptr object, std::vector<file_dist_t> &guesses)
 {
 	pcl::PointCloud<pcl::VFHSignature308>::Ptr descriptors(new pcl::PointCloud<pcl::VFHSignature308> ());
@@ -365,6 +366,7 @@ void DESCRIPTORS::doTheGuess(const pcl::PointCloud<PointT>::Ptr object, std::vec
 
 	index.buildIndex ();
 
+	printf("Models %d\n", models.size());
 	nearestKSearch (index, histogram, models.size(), k_indices, k_distances);
 
 	guesses.clear();
