@@ -38,8 +38,3 @@ void AprilTagsI::newAprilTag(const tagsList  &tags, const Ice::Current&)
 	worker->newAprilTag(tags);
 }
 
-
-
-
-
-

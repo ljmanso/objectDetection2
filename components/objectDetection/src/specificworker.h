@@ -81,21 +81,24 @@ typedef pcl::PointXYZRGB PointT;
 
 using namespace computepointcloud;
 
+
+enum class States { Training, Attention, Pipeline, YoloInit, YoloWait };
+
 class SpecificWorker : public GenericWorker
 {
-  string image_path;
-  float tx, ty, tz, rx, ry, rz;
+	string image_path;
+	float tx, ty, tz, rx, ry, rz;
 	bool test;
 	QString id_robot, id_camera,id_camera_transform;
 	string descriptors_extension, pathLoadDescriptors, type_fitting;
 	InnerModel *innermodel;
-  StringVector lObjectsTofind;
+	StringVector lObjectsTofind;
 
 	//for poses calculation respect to the canonical one
 	InnerModel *poses_inner;
 	tagsList tags;
 	QMutex april_mutex;
-  QMutex matcher_mutex;
+	QMutex matcher_mutex;
 	int num_pose;
 	int num_scene;
 
@@ -111,7 +114,10 @@ class SpecificWorker : public GenericWorker
 	//Image of the current view for opencv
 	cv::Mat rgb_image;
 	cv::Mat color_segmented;
-    RTMat viewpoint_transform;
+	RTMat viewpoint_transform;
+	
+	cv::Mat last_rgb_image; //Last image
+	pcl::PointCloud<PointT>::Ptr last_cloud; //Last cloud
 
 	//Point cloud grabing
 	RoboCompRGBD::ColorSeq rgbMatrix;
@@ -134,13 +140,13 @@ class SpecificWorker : public GenericWorker
 
 #ifdef USE_QTGUI
 	QGraphicsPixmapItem* item_pixmap;
-	vector<QGraphicsTextItem*> V_text_item;
+// 	vector<QGraphicsTextItem*> V_text_item;
 	vector<QGraphicsPixmapItem*> V_pixmap_item;
 
 	QGraphicsScene scene;
 
 	boost::shared_ptr<Viewer> viewer;
-  QVec guess;
+	QVec guess;
 
 #endif
 	pcl::PointCloud< PointT >::Ptr copy_scene;
@@ -155,7 +161,7 @@ public:
 /*
  * Method of Interface ObjectDetection.ice
  */
-  static void computeObjectScene(pcl::PointCloud<PointT>::Ptr obj_scene, ObjectType *Obj, SpecificWorker *s);
+	static void computeObjectScene(pcl::PointCloud<PointT>::Ptr obj_scene, ObjectType *Obj, SpecificWorker *s);
 	bool findObjects(const StringVector &objectsTofind, ObjectVector &objects);
 
 /*
@@ -171,7 +177,7 @@ public slots:
 	void findTheObject_Button();
 	void reloadDESCRIPTORS_Button();
 	void fullRun_Button();
-  void ResetPose_Button();
+	void ResetPose_Button();
 #endif
 
 private:
@@ -198,7 +204,7 @@ private:
 	QVec saveRegPose(const string &label, const int numPoseToSave);
 
 	void updatergbd();
-	void settexttocloud(string name, float minx, float maxx, float miny, float maxy, float minz, float maxz);
+	QGraphicsItem *settexttocloud(string name, float minx, float maxx, float miny, float maxy, float minz, float maxz);
 	void paintcloud(pcl::PointCloud<PointT>::Ptr cloud);
 	void removeAllpixmap();
 #endif
@@ -207,6 +213,15 @@ private:
 // 	void passThrough();
 // 	void statisticalOutliersRemoval();
 
+	States state;
+	void setState(States state);
+	bool imageChanges();
+	bool matIsEqual(const cv::Mat Mat1, const cv::Mat Mat2);
+	bool pointCloudIsEqual();
+	
+	//Yolo
+	RoboCompYoloServer::Image yoloImage;
+	RoboCompYoloServer::Labels yoloLabels;
 };
 
 #endif

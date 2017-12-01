@@ -123,6 +123,7 @@
 
  <node alias="objectD" endpoint="commonbehavior:tcp -p 18332">
   <dependence alias="IS" />
+  <dependence alias="rgbd" />
   <dependence alias="comJoint" />
   <workingDir path="/home/robocomp/" />
   <upCommand command="rcremote localhost objectD /home/robocomp/robocomp/components/objectDetection2/components/objectDetection ./bin/objectDetectionComp /home/robocomp/robocomp/components/objectDetection2/etc/objectDetection.conf" />

@@ -1,14 +1,15 @@
-import "/robocomp/interfaces/IDSLs/ObjectDetection.idsl";
-import "/robocomp/interfaces/IDSLs/AprilTags.idsl";
-import "/robocomp/interfaces/IDSLs/RGBD.idsl";
-import "/robocomp/interfaces/IDSLs/JointMotor.idsl";
+import "ObjectDetection.idsl";
+import "AprilTags.idsl";
+import "RGBD.idsl";
+import "JointMotor.idsl";
+import "YoloServer.idsl";
 
 Component objectDetectionComp
 {
 	Communications
 	{
 		implements ObjectDetection;
-		requires RGBD, JointMotor;
+		requires RGBD, JointMotor, YoloServer;
 		subscribesTo AprilTags;
 	};
 	language Cpp;

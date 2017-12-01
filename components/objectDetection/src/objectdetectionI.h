@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2017 by YOUR NAME HERE
+ *    Copyright (C)2017 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -31,9 +31,9 @@ using namespace RoboCompObjectDetection;
 class ObjectDetectionI : public virtual RoboCompObjectDetection::ObjectDetection
 {
 public:
-	ObjectDetectionI(GenericWorker *_worker);
+ObjectDetectionI(GenericWorker *_worker);
 	~ObjectDetectionI();
-	
+
 	bool findObjects(const StringVector  &objectsTofind,  ObjectVector  &objects, const Ice::Current&);
 
 private:

@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 2.8.11)
-PROJECT(  objectDetectionComp )
+PROJECT( objectDetectionComp )
 
- 
+
 IF ( "$ENV{ROBOCOMP}" STREQUAL "")
   MESSAGE(WARNING "ROBOCOMP variable not set. Using the default value: /opt/robocomp")
   SET (ENV{ROBOCOMP} "/opt/robocomp/")
@@ -34,7 +34,7 @@ SET ( SOURCES
 
 #ROBOCOMP
 ROBOCOMP_INITIALIZE( $ENV{ROBOCOMP}/ )
-ROBOCOMP_WRAP_ICE( CommonBehavior ObjectDetection AprilTags GenericBase JointMotor RGBD JointMotor GenericBase JointMotor )
+ROBOCOMP_WRAP_ICE( CommonBehavior ObjectDetection  AprilTags  GenericBase  JointMotor  RGBD  JointMotor  GenericBase  JointMotor  YoloServer )
 SET (EXECUTABLE_OUTPUT_PATH ${RC_COMPONENT_DEVEL_PATH}/bin)
 
 # Qt4

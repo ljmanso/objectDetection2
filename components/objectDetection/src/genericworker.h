@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2017 by YOUR NAME HERE
+ *    Copyright (C)2017 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -36,6 +36,7 @@
 #include <JointMotor.h>
 #include <GenericBase.h>
 #include <JointMotor.h>
+#include <YoloServer.h>
 
 #define CHECK_PERIOD 5000
 #define BASIC_PERIOD 100
@@ -44,16 +45,17 @@ typedef map <string,::IceProxy::Ice::Object*> MapPrx;
 
 using namespace std;
 
+using namespace RoboCompYoloServer;
 using namespace RoboCompGenericBase;
 using namespace RoboCompRGBD;
+using namespace RoboCompJointMotor;
 using namespace RoboCompObjectDetection;
 using namespace RoboCompAprilTags;
-using namespace RoboCompJointMotor;
 
 
 
 
-class GenericWorker : 
+class GenericWorker :
 #ifdef USE_QTGUI
 public QWidget, public Ui_guiDlg
 #else
@@ -66,13 +68,14 @@ public:
 	virtual ~GenericWorker();
 	virtual void killYourSelf();
 	virtual void setPeriod(int p);
-	
+
 	virtual bool setParams(RoboCompCommonBehavior::ParameterList params) = 0;
 	QMutex *mutex;
-	
 
-	JointMotorPrx jointmotor_proxy;
+
 	RGBDPrx rgbd_proxy;
+	JointMotorPrx jointmotor_proxy;
+	YoloServerPrx yoloserver_proxy;
 
 	virtual bool findObjects(const StringVector &objectsTofind, ObjectVector &objects) = 0;
 	virtual void newAprilTagAndPose(const tagsList &tags, const RoboCompGenericBase::TBaseState &bState, const RoboCompJointMotor::MotorStateMap &hState) = 0;

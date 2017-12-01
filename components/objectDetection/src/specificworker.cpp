@@ -104,35 +104,183 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		innermodel->updateJointValue(QString::fromStdString("head_pitch_joint"),0.710744);
 		innermodel->updateJointValue(QString::fromStdString("head_yaw_joint"),0.0102265);
 	}
-	timer.start(10);
+	timer.start(50);
+	
+
+	setState(States::YoloInit);
+	
+// 	RoboCompRGBD::ColorSeq rgbMatrix;
+// 	rgbd_proxy->getRGB(rgbMatrix,h,b);
+// 	for(unsigned int i=0; i<rgbMatrix.size(); i++)
+// 	{
+// 		int row = (i/640), column = i-(row*640);
+// 		last_rgb_image.at<cv::Vec3b>(row, column) = cv::Vec3b(rgbMatrix[i].blue, rgbMatrix[i].green, rgbMatrix[i].red);
+// 	}	
 	return true;
 }
 
-
-
 void SpecificWorker::compute()
 {
+	static int yoloId;
+	
 	if (!test)
 		updateinner();
+	
 #ifdef USE_QTGUI
-	if(guess != QVec::zeros(6))
-	{
-		tx = guess.x() + tx_Slider->value()/1.;
-		ty = guess.y() + ty_Slider->value()/1.;
-		tz = guess.z()/1000. + tz_Slider->value()/1000.;
-		rx = guess.rx();
-		ry = guess.ry();
-		rz = guess.rz();
-		QMat poseObjR=RTMat(rx/1000., ry/1000., rz/1000., tx, ty, tz);
-		viewer->updateCoordinateSystemPose(poseObjR,"poseobjectR");
-	}
 	try
 	{
-			updatergbd();
-			viewer->update();
+		updatergbd();
+		viewer->update();
 	}
 	catch(...){}
 #endif
+
+	switch(state)
+	{
+	
+		case States::Training:
+			#ifdef USE_QTGUI
+			if(guess != QVec::zeros(6))
+			{
+				tx = guess.x() + tx_Slider->value()/1.;
+				ty = guess.y() + ty_Slider->value()/1.;
+				tz = guess.z()/1000. + tz_Slider->value()/1000.;
+				rx = guess.rx();
+				ry = guess.ry();
+				rz = guess.rz();
+				QMat poseObjR=RTMat(rx/1000., ry/1000., rz/1000., tx, ty, tz);
+				viewer->updateCoordinateSystemPose(poseObjR,"poseobjectR");
+			}
+			#endif
+			break;
+
+		case States::Attention:
+			// Condiciones para pasar a Pipeline
+			if(imageChanges())
+				setState(States::Pipeline);
+			rgb_image.copyTo(last_rgb_image);
+//			last_cloud = copy_pointcloud(cloud);
+			
+			break;
+		
+		case States::Pipeline:
+			findTheObject_Button();
+			setState(States::Attention);
+			break;
+		
+		case States::YoloInit:
+			try
+			{
+				yoloId = yoloserver_proxy->addImage(yoloImage);
+				qDebug() << "YoloInit";
+				setState(States::YoloWait);
+				RoboCompYoloServer::Labels labels = yoloserver_proxy->getData(yoloId);
+			}
+			catch(const Ice::Exception &e){ std::cout << e << std::endl;}
+			break;
+			
+		case States::YoloWait:
+			try
+			{
+				yoloLabels = yoloserver_proxy->getData(yoloId);
+				if( yoloLabels.isReady )
+				{
+					qDebug() << "YoloWait" << yoloLabels.lBox.size();
+					for(auto b: yoloLabels.lBox)
+					{
+						std::cout << b.label << " " << b.x << " " << b.y << " " << b.prob << std::endl;
+					}
+					setState(States::YoloInit);
+				}
+			}
+			catch(const Ice::Exception &e){std::cout << e << std::endl;}
+	}
+}
+
+void SpecificWorker::setState(States s)
+{
+	static bool first = true;
+	if (s == state and not first)
+		return;
+	first = false;
+
+	state = s;
+
+#ifdef USE_QTGUI
+	if (state == States::Attention)
+		stateLabel->setText("Attention");
+	else if (state == States::Pipeline)
+		stateLabel->setText("Pipeline");
+	else if (state == States::Training)
+		stateLabel->setText("Training");
+#endif	
+	if (state == States::Training)
+	{
+		groupBox->show();
+	}
+	else
+	{
+		groupBox->hide();
+	}
+}
+
+bool SpecificWorker::imageChanges()
+{
+	if(matIsEqual(rgb_image,last_rgb_image))
+		return false;
+// 	else if(pointCloudIsEqual())
+// 		return false;
+	return true;
+}
+
+//Returns true if two mat are equal
+// bool SpecificWorker::matIsEqual(const cv::Mat Mat1, const cv::Mat Mat2)
+// {
+// 	if( Mat1.dims == Mat2.dims && Mat1.size == Mat2.size && Mat1.elemSize() == Mat2.elemSize()){
+// 		if( Mat1.isContinuous() && Mat2.isContinuous()){
+// 			return 0==memcmp( Mat1.ptr(), Mat2.ptr(), Mat1.total()*Mat1.elemSize());
+// 		}
+// 		else{
+// 			const cv::Mat* arrays[] = {&Mat1, &Mat2, 0};
+// 			uchar* ptrs[2];
+// 			cv::NAryMatIterator it( arrays, ptrs, 2);
+// 			for(unsigned int p = 0; p < it.nplanes; p++, ++it)
+// 				if( 0!=memcmp( it.ptrs[0], it.ptrs[1], it.size*Mat1.elemSize()) )
+// 					return false;
+// 
+// 			return true;
+// 		}
+// 	}
+// 	return false;
+// }
+
+bool SpecificWorker::matIsEqual(const cv::Mat Mat1, const cv::Mat Mat2)
+{
+	if ( Mat1.size != Mat2.size)
+		return false;
+	uint32_t v = 0;
+	for (int r=0; r< Mat1.rows; r++)
+	{
+		for (int c=0; c< Mat1.cols; c++)
+		{
+			for (int x = 0; x<3; x++)
+			{
+				uint32_t k = abs(Mat1.at<cv::Vec3b>(r, c)[x] - Mat2.at<cv::Vec3b>(r, c)[x]);
+				if (k > 5)
+				{
+					v += k;
+				}
+			}
+		}
+	}
+	printf("(%dx%d) ->%d\n", Mat1.rows, Mat1.cols, v);
+	if(v > 1000000)
+		return false;
+	return true;
+}
+
+bool SpecificWorker::pointCloudIsEqual(){
+	
 }
 
 /*
@@ -141,7 +289,7 @@ void SpecificWorker::compute()
 void SpecificWorker::computeObjectScene(pcl::PointCloud<PointT>::Ptr obj_scene, ObjectType *Obj, SpecificWorker *s)
 {
 	std::vector<DESCRIPTORS::file_dist_t> descriptor_guesses;
-	printf("Descriptors: %d\n", descriptor_guesses.size());
+	printf("Descriptors: %ld\n", descriptor_guesses.size());
 	// s->matcher_mutex.lock();
 	s->descriptor_matcher->doTheGuess(obj_scene, descriptor_guesses);
 	// s->matcher_mutex.unlock();
@@ -746,7 +894,6 @@ void SpecificWorker::updatergbd()
 	RoboCompRGBD::ColorSeq rgbMatrix;
 	RoboCompJointMotor::MotorStateMap h;
 	RoboCompGenericBase::TBaseState b;
-	cv::Mat rgb_image(480,640, CV_8UC3, cv::Scalar::all(0));
 	if(test)
 	{
 		rgb_image = cv::imread(image_path);
@@ -759,21 +906,47 @@ void SpecificWorker::updatergbd()
 	else
 	{
 		rgbd_proxy->getRGB(rgbMatrix,h,b);
-		for(unsigned int i=0; i<rgbMatrix.size(); i++)
+		yoloImage.data.resize(rgbMatrix.size()*3);
+		yoloImage.w=640;
+		yoloImage.h=480;
+		int j=0;
+		for(unsigned int i=0; i<rgbMatrix.size(); i++, j=i*3)
 		{
-			int row = (i/640), column = i-(row*640);
+			int row = (i/480), column = i-(row*640);
 			rgb_image.at<cv::Vec3b>(row, column) = cv::Vec3b(rgbMatrix[i].blue, rgbMatrix[i].green, rgbMatrix[i].red);
+			yoloImage.data[j] = rgbMatrix[i].blue;
+			yoloImage.data[j+1] = rgbMatrix[i].green;
+			yoloImage.data[j+2] = rgbMatrix[i].red;	
 		}
 	}
 
 	cv::Mat dest;
 	cv::cvtColor(rgb_image, dest,CV_BGR2RGB);
+	
+	//ÑAPA
+	if(yoloLabels.isReady)
+		for(auto box: yoloLabels.lBox)
+		{
+			if( box.prob > 35)
+			{
+				CvPoint p1, p2, pt;
+				p1.x = int(box.x); p1.y = int(box.y);
+				p2.x = int(box.w); p2.y = int(box.h);
+				pt.x = int(box.x); pt.y = int(box.y) + ((p2.y - p1.y) / 2);
+				cv::rectangle(dest, p1, p2, cv::Scalar(0, 0, 255), 4);
+				auto font = cv::FONT_HERSHEY_SIMPLEX;
+				cv::rectangle(dest, p1, p2, cv::Scalar(0, 0, 255), 4);
+				cv::putText(dest, box.label + " " + std::to_string(int(box.prob)) + "%", pt, font, 1, cv::Scalar(255, 255, 255), 2);
+			}
+		}
+	
+	
 	QImage image((uchar*)dest.data, dest.cols, dest.rows,QImage::Format_RGB888);
 	item_pixmap->setPixmap(QPixmap::fromImage(image));
 	scene.update();
 }
 
-void SpecificWorker::settexttocloud(string name, float minx, float maxx, float miny, float maxy, float minz, float maxz)
+QGraphicsItem *SpecificWorker::settexttocloud(string name, float minx, float maxx, float miny, float maxy, float minz, float maxz)
 {
 	QGraphicsTextItem *text=new QGraphicsTextItem(QString::fromStdString(name));
 	QFont serifFont("Times", 15, QFont::Bold);
@@ -785,7 +958,7 @@ void SpecificWorker::settexttocloud(string name, float minx, float maxx, float m
 	QVec xy = camera->project(id_robot, QVec::vec3(m_x*MEDIDA, m_y*MEDIDA, m_z*MEDIDA));
 	text->setPos(xy(0)-30,xy(1));
 	scene.addItem(text);
-	V_text_item.push_back(text);
+	return text;
 }
 
 void SpecificWorker::paintcloud(pcl::PointCloud< PointT >::Ptr cloud)
@@ -873,12 +1046,20 @@ void SpecificWorker::findTheObject_Button()
 		SUB(&resta_, &Fin_, &Inicio_);
 		qDebug()<<"-----"<<resta_.tv_sec<<"s "<<resta_.tv_nsec<<"ns";
 		int i=0;
+		
+		static std::vector<QGraphicsItem*> text_labels;
+		for (auto v : text_labels)
+		{
+			scene.removeItem(v);
+		}
+		text_labels.clear();
+
 		for(auto obj:lObjects)
 		{
 			std::cout<<"Object: "<<obj.label<<std::endl;
 			std::cout<<"	Pose: "<<obj.tx<<", "<<obj.ty<<", "<<obj.tz<<", "<<obj.rx<<", "<<obj.ry<<", "<<obj.rz<<std::endl;
 			std::cout<<"	  BB: "<<obj.minx<<", "<<obj.miny<<", "<<obj.minz<<", "<<obj.maxx<<", "<<obj.maxy<<", "<<obj.maxz<<std::endl;
-			settexttocloud(obj.label, obj.minx, obj.maxx, obj.miny, obj.maxy, obj.minz, obj.maxz);
+			text_labels.push_back(settexttocloud(obj.label, obj.minx, obj.maxx, obj.miny, obj.maxy, obj.minz, obj.maxz));
 			viewer->addText3D(obj.label,obj.minx, obj.maxx, obj.miny, obj.maxy, obj.minz, obj.maxz, QString::number(i).toStdString());
 			viewer->addCube(obj.minx, obj.maxx, obj.miny, obj.maxy, obj.minz, obj.maxz, QString::number(i).toStdString());
 			if(obj.rx != 0 && obj.ry != 0 && obj.rz)
@@ -886,6 +1067,7 @@ void SpecificWorker::findTheObject_Button()
 			id_objects.push_back(QString::number(i).toStdString());
 			i++;
 		}
+
 	}
 	catch(...)
 	{

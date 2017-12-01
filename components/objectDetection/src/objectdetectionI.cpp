@@ -33,8 +33,3 @@ bool ObjectDetectionI::findObjects(const StringVector  &objectsTofind,  ObjectVe
 	return worker->findObjects(objectsTofind, objects);
 }
 
-
-
-
-
-

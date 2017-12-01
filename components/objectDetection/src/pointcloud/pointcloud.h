@@ -20,7 +20,6 @@
 #include <pcl/visualization/cloud_viewer.h>
 
 
-
 typedef pcl::PointXYZRGB PointT;
 
 using namespace std;

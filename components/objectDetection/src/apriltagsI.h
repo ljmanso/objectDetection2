@@ -1,5 +1,5 @@
 /*
- *    Copyright (C) 2017 by YOUR NAME HERE
+ *    Copyright (C)2017 by YOUR NAME HERE
  *
  *    This file is part of RoboComp
  *
@@ -31,9 +31,9 @@ using namespace RoboCompAprilTags;
 class AprilTagsI : public virtual RoboCompAprilTags::AprilTags
 {
 public:
-	AprilTagsI(GenericWorker *_worker);
+AprilTagsI(GenericWorker *_worker);
 	~AprilTagsI();
-	
+
 	void newAprilTagAndPose(const tagsList  &tags, const RoboCompGenericBase::TBaseState  &bState, const RoboCompJointMotor::MotorStateMap  &hState, const Ice::Current&);
 	void newAprilTag(const tagsList  &tags, const Ice::Current&);
 
