@@ -7,6 +7,8 @@
 		</transform>
 
 
+		<include path="/home/robocomp/robocomp/components/robocomp-shelly/etc/shelly.xml"/>
+		
 
 <!-- 		<transform id="room_3" -->
 
@@ -222,6 +224,8 @@
 				</transform>
 			</transform>
 
+			
+			<!-- MESA DE LA COCINA-->
 			<!-- TABLE F -->
 			<transform id="countertopA" tx="450" tz="-2920" ty="890" ry="-0.092" >
 				<transform id="jdfwege" ty="600">
@@ -234,6 +238,12 @@
 					</transform>
 				</transform>
 				<mesh id="countertopA_mesh" file="/home/robocomp/robocomp/files/osgModels/basics/cube2.3ds" scale="650,20,2500" collide="1" />
+				
+				<!-- Insertar objetos de la mesa aqui-->
+				<transform id="tazaplace" tx="0" ty="5" tz="0" ry="1.5707963267948966">
+					<mesh id="taza" file="/home/robocomp/robocomp/files/osgModels/mobiliario/taza.osg"  tx="0" ty="0" tz="0" rx="1.57079632679" rz="-1.57079632679" scale="65"/>
+				</transform>
+				
 			</transform>
 			<!-- lateral mesa F -->
 			<transform id="1pared3" tx="314.52948" tz="-1690" ty="445" ry="0.025" >

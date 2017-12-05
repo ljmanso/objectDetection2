@@ -82,7 +82,7 @@ typedef pcl::PointXYZRGB PointT;
 using namespace computepointcloud;
 
 
-enum class States { Training, Attention, Pipeline, YoloInit, YoloWait };
+enum class States { Training, Attention, Pipeline, YoloInit, YoloWait, Predict, Compare };
 
 class SpecificWorker : public GenericWorker
 {
@@ -158,12 +158,12 @@ public:
 	~SpecificWorker();
 
 	bool setParams(RoboCompCommonBehavior::ParameterList params);
-/*
- * Method of Interface ObjectDetection.ice
- */
-	static void computeObjectScene(pcl::PointCloud<PointT>::Ptr obj_scene, ObjectType *Obj, SpecificWorker *s);
-	bool findObjects(const StringVector &objectsTofind, ObjectVector &objects);
 
+	//// SERVANT for ObjectDetection.ice
+	bool findObjects(const StringVector &objectsTofind, ObjectVector &objects){return false;};
+	// Thread worker for findobjects
+	//static void computeObjectScene(pcl::PointCloud<PointT>::Ptr obj_scene, ObjectType *Obj, SpecificWorker *s);
+	
 /*
  * Method of Interface AprilTags.ice
  */
@@ -173,48 +173,48 @@ public:
 public slots:
 	void compute();
 #ifdef USE_QTGUI
-	void saveView();
-	void findTheObject_Button();
-	void reloadDESCRIPTORS_Button();
-	void fullRun_Button();
-	void ResetPose_Button();
+	//void saveView_Button();
+	//void findTheObject_Button();
+	//void reloadDESCRIPTORS_Button();
+	//void fullRun_Button();
+	//void ResetPose_Button();
 #endif
 
 private:
-	QVec extraerposefromTM(QMat M);
-	void grabThePointCloud();
-	void readThePointCloud(const string &image, const string &pcd);
-	void ransac();
-	void projectInliers();
-	void convexHull();
-	void extractPolygon();
-	void euclideanClustering(int &numCluseters);
-
-	void capturePointCloudObjects();
-
-	void updateinner();
-	void loadTrainedDESCRIPTORS();
-	void descriptors(StringVector &guesses);
-	bool aprilSeen(QVec &offset);
-
-	void reloadDESCRIPTORS();
-	void getPose(ObjectType &Obj, string file_view_mathing, 	pcl::PointCloud<PointT>::Ptr obj_scene);
 #ifdef USE_QTGUI
-	void initSaveObject(const string &label, const int numPoseToSave);
-	QVec saveRegPose(const string &label, const int numPoseToSave);
-
-	void updatergbd();
-	QGraphicsItem *settexttocloud(string name, float minx, float maxx, float miny, float maxy, float minz, float maxz);
-	void paintcloud(pcl::PointCloud<PointT>::Ptr cloud);
-	void removeAllpixmap();
+ 	//void initSaveObject(const string &label, const int numPoseToSave);
+ 	//QVec saveRegPose(const string &label, const int numPoseToSave);
+	void updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const RoboCompJointMotor::MotorStateMap &h, const RoboCompGenericBase::TBaseState &b);
+ 	//QGraphicsItem *settexttocloud(string name, float minx, float maxx, float miny, float maxy, float minz, float maxz);
+ 	//void paintcloud(pcl::PointCloud<PointT>::Ptr cloud);
+	//oid removeAllpixmap();
 #endif
+	
+private:
+	 	void updateinner();
 
+//  	QVec extraerposefromTM(QMat M);
+//  	void grabThePointCloud();
+//  	void readThePointCloud(const string &image, const string &pcd);
+//  	void ransac();
+//  	void projectInliers();
+//  	void convexHull();
+//  	void extractPolygon();
+//  	void euclideanClustering(int &numCluseters);
+//  	void capturePointCloudObjects();
+//  	void loadTrainedDESCRIPTORS();
+//  	void descriptors(StringVector &guesses);
+//  	bool aprilSeen(QVec &offset);
+  	void reloadDESCRIPTORS(){};
+//  	void getPose(ObjectType &Obj, string file_view_mathing, 	pcl::PointCloud<PointT>::Ptr obj_scene);
 // 	void segmentImage();
 // 	void passThrough();
 // 	void statisticalOutliersRemoval();
 
+	// State machine
 	States state;
 	void setState(States state);
+	
 	bool imageChanges();
 	bool matIsEqual(const cv::Mat Mat1, const cv::Mat Mat2);
 	bool pointCloudIsEqual();
