@@ -221,7 +221,15 @@ private:
 	
 	//Yolo
 	RoboCompYoloServer::Image yoloImage;
-	RoboCompYoloServer::Labels yoloLabels;
+	RoboCompYoloServer::Labels yoloLabels, yoloLabelsBack;
+	
+	//Objects geometry
+	struct TObject
+	{
+		std::string name;
+		QVec xbb, ybb, zbb;
+	};
+	std::vector<TObject> listObjects;
 };
 
 #endif

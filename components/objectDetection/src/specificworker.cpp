@@ -104,7 +104,8 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		test=true;
 	}
 	
-	reloadDESCRIPTORS();
+	//reloadDESCRIPTORS();
+	
 	if (test)
 	{
 		innermodel->updateJointValue(QString::fromStdString("head_pitch_joint"),0.710744);
@@ -121,21 +122,32 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 // 		int row = (i/640), column = i-(row*640);
 // 		last_rgb_image.at<cv::Vec3b>(row, column) = cv::Vec3b(rgbMatrix[i].blue, rgbMatrix[i].green, rgbMatrix[i].red);
 // 	}	
+	
+	TObject taza;
+	taza.name = "tazaplace";
+	taza.xbb = QVec::vec3(40,0,0);
+	taza.ybb = QVec::vec3(40,0,40);
+	taza.zbb = QVec::vec3(0,100,0);
+	listObjects.push_back(taza);
+	
 	return true;
 }
 
 void SpecificWorker::compute()
 {
 	static int yoloId;
+	static QTime reloj = QTime::currentTime();
+	
+	//reloj.restart();
+	
+	RoboCompRGBD::ColorSeq rgbMatrix;
+	RoboCompJointMotor::MotorStateMap h;
+	RoboCompGenericBase::TBaseState b;
 	
 	try
-	{	
-		RoboCompRGBD::ColorSeq rgbMatrix;
-		RoboCompJointMotor::MotorStateMap h;
-		RoboCompGenericBase::TBaseState b;
-		rgbd_proxy->getRGB(rgbMatrix,h,b); 
-	}
-	catch(const Ice::Exception &e){ std::cout << e << std::endl; return; };
+	{	rgbd_proxy->getRGB(rgbMatrix,h,b); 	}
+	catch(const Ice::Exception &e)
+	{ std::cout << e << std::endl; return; };
 			
 	if (!test)
 		updateinner();
@@ -151,7 +163,6 @@ void SpecificWorker::compute()
 
 	switch(state)
 	{
-	
 		case States::Training:
 			#ifdef USE_QTGUI
 			if(guess != QVec::zeros(6))
@@ -182,7 +193,11 @@ void SpecificWorker::compute()
 			break;
 		
 		case States::Predict:
-			// Get list of items in InnerModel head camera frustrum
+			for(auto o: listObjects)
+			{
+				InnerModelTransform *n = innermodel->getNode<InnerModelTransform>(o.name);
+			}
+			
 			// Get list of regions
 			setState(States::YoloInit);
 	
@@ -191,8 +206,9 @@ void SpecificWorker::compute()
 			{
 				yoloId = yoloserver_proxy->addImage(yoloImage);
 				//qDebug() << "YoloInit";
+				reloj.restart();
 				setState(States::YoloWait);
-				RoboCompYoloServer::Labels labels = yoloserver_proxy->getData(yoloId);
+				//RoboCompYoloServer::Labels labels = yoloserver_proxy->getData(yoloId);
 			}
 			catch(const Ice::Exception &e){ std::cout << e << std::endl;}
 			break;
@@ -204,9 +220,12 @@ void SpecificWorker::compute()
 				if( yoloLabels.isReady )
 				{
 					//qDebug() << "YoloWait" << yoloLabels.lBox.size();
-					for(auto b: yoloLabels.lBox)
+					/*for(auto b: yoloLabels.lBox)
 						std::cout << b.label << " " << b.x << " " << b.y << " " << b.prob << std::endl;
+					*/
+					yoloLabelsBack = yoloLabels;
 					setState(States::Compare);
+					qDebug() << reloj.elapsed() << "mseconds";
 				}
 			}
 			catch(const Ice::Exception &e){std::cout << e << std::endl;}
@@ -217,6 +236,8 @@ void SpecificWorker::compute()
 			setState(States::Predict);
 			break;
 	}
+	
+	//qDebug() << reloj.elapsed() << "mseconds";
 }
 
 
@@ -321,6 +342,7 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
 	}
 	else
 	{
+		//qDebug() << __FUNCTION__ << rgbMatrix.size();
 		yoloImage.data.resize(rgbMatrix.size()*3);
 		yoloImage.w=640; yoloImage.h=480;
 		int j=0;
@@ -334,12 +356,14 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
  		}
 	}
 
+	
+	
 	cv::Mat dest;
 	cv::cvtColor(rgb_image, dest,CV_BGR2RGB);
 	
 	//ÑAPA
-	if(yoloLabels.isReady)
-		for(auto box: yoloLabels.lBox)
+	//if(yoloLabels.isReady)
+		for(auto box: yoloLabelsBack.lBox)
 		{
 			if( box.prob > 35)
 			{
