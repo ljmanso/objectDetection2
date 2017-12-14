@@ -193,9 +193,12 @@ void SpecificWorker::compute()
 			break;
 		
 		case States::Predict:
+			// Go through objects and project it BB
+			// if inside frustrum draw boxes on image
 			for(auto o: listObjects)
 			{
-				InnerModelTransform *n = innermodel->getNode<InnerModelTransform>(o.name);
+				InnerModelTransform *n = innermodel->getTransform(o.name);
+				
 			}
 			
 			// Get list of regions
