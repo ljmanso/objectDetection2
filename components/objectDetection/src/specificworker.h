@@ -226,10 +226,13 @@ private:
 	//Objects geometry
 	struct TObject
 	{
-		std::string name;
-		QVec xbb, ybb, zbb;
+		QString name;
+		std::vector<QVec> bb;
 	};
 	std::vector<TObject> listObjects;
+	
+	//Synthetic yolo
+	RoboCompYoloServer::Labels yoloSLabels;
 };
 
 #endif

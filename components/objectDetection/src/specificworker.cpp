@@ -113,7 +113,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	}
 	timer.start(50);
 	
-	setState(States::YoloInit);
+	setState(States::Predict);
 	
 // 	RoboCompRGBD::ColorSeq rgbMatrix;
 // 	rgbd_proxy->getRGB(rgbMatrix,h,b);
@@ -125,9 +125,13 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	
 	TObject taza;
 	taza.name = "tazaplace";
-	taza.xbb = QVec::vec3(40,0,0);
-	taza.ybb = QVec::vec3(40,0,40);
-	taza.zbb = QVec::vec3(0,100,0);
+	taza.bb.push_back(QVec::vec3(50,0,0));
+	taza.bb.push_back(QVec::vec3(-50,0,0));
+	taza.bb.push_back(QVec::vec3(0,120,0));
+	taza.bb.push_back(QVec::vec3(0,0,0));
+	taza.bb.push_back(QVec::vec3(0,0,50));
+	taza.bb.push_back(QVec::vec3(0,0,-50));
+	
 	listObjects.push_back(taza);
 	
 	return true;
@@ -195,14 +199,39 @@ void SpecificWorker::compute()
 		case States::Predict:
 			// Go through objects and project it BB
 			// if inside frustrum draw boxes on image
-			for(auto o: listObjects)
+			yoloSLabels.lBox.clear();
+			for(auto &o: listObjects)
 			{
-				InnerModelTransform *n = innermodel->getTransform(o.name);
+				InnerModelCamera *c = innermodel->getCamera("rgbd");
+				std::vector<QVec> bbInCam;
+				for(auto &b: o.bb)
+				{
+					QVec res = c->project(innermodel->transform("rgbd", b, o.name));
+					bbInCam.push_back(res);
+					res.print("res");
+				}
 				
+				// check if pixel coordinates are inside image >0 and < 640
+				// compute a bounding box of pixel coordinates
+				auto xExtremes = std::minmax_element(bbInCam.begin(), bbInCam.end(),
+                                     [](const QVec& lhs, const QVec& rhs) { return lhs.x() < rhs.x();});
+				auto yExtremes = std::minmax_element(bbInCam.begin(), bbInCam.end(),
+                                     [](const QVec& lhs, const QVec& rhs) { return lhs.y() < rhs.y();});
+				RoboCompYoloServer::Box box;
+				box.x = xExtremes.first->x();
+				box.y = yExtremes.first->y();
+	/*			box.w = xExtremes.second->x() - xExtremes.first->x();
+				box.y = yExtremes.second->y() - yExtremes.first->y();
+	*/			box.w = xExtremes.second->x() ;
+				box.y = yExtremes.second->y() ;
+	
+				box.label = o.name.toStdString();
+				box.prob = 100;
+				yoloSLabels.lBox.push_back(box);
 			}
 			
 			// Get list of regions
-			setState(States::YoloInit);
+			//setState(States::YoloInit);
 	
 		case States::YoloInit:
 			try
@@ -359,8 +388,6 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
  		}
 	}
 
-	
-	
 	cv::Mat dest;
 	cv::cvtColor(rgb_image, dest,CV_BGR2RGB);
 	
@@ -371,16 +398,22 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
 			if( box.prob > 35)
 			{
 				CvPoint p1, p2, pt;
-				cv::Point3_<float> centro;
-				centro.x = box.x/2;
-				centro.y = box.y/2;
-				centro.z = 0.0;
 				p1.x = int(box.x); p1.y = int(box.y);
 				p2.x = int(box.w); p2.y = int(box.h);
 				pt.x = int(box.x); pt.y = int(box.y) + ((p2.y - p1.y) / 2);
 				cv::rectangle(dest, p1, p2, cv::Scalar(0, 0, 255), 4);
 				auto font = cv::FONT_HERSHEY_SIMPLEX;
 				cv::putText(dest, box.label + " " + std::to_string(int(box.prob)) + "%", pt, font, 1, cv::Scalar(255, 255, 255), 1);
+			}
+		}
+		for(auto box: yoloSLabels.lBox)
+		{
+			if( box.prob > 35)
+			{
+				CvPoint p1, p2;
+				p1.x = int(box.x); p1.y = int(box.y);
+				p2.x = int(box.w); p2.y = int(box.h);
+				cv::rectangle(dest, p1, p2, cv::Scalar(0, 255, 5), 4);
 			}
 		}
 	
