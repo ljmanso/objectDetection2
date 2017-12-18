@@ -28,8 +28,9 @@ QObject()
 #endif
 
 {
-	rgbd_proxy = (*(RGBDPrx*)mprx["RGBDProxy"]);
 	yoloserver_proxy = (*(YoloServerPrx*)mprx["YoloServerProxy"]);
+	omnirobot_proxy = (*(OmniRobotPrx*)mprx["OmniRobotProxy"]);
+	rgbd_proxy = (*(RGBDPrx*)mprx["RGBDProxy"]);
 	jointmotor_proxy = (*(JointMotorPrx*)mprx["JointMotorProxy"]);
 
 	mutex = new QMutex(QMutex::Recursive);

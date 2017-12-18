@@ -3,13 +3,14 @@ import "AprilTags.idsl";
 import "RGBD.idsl";
 import "JointMotor.idsl";
 import "YoloServer.idsl";
+import "OmniRobot.idsl";
 
 Component objectDetectionComp
 {
 	Communications
 	{
 		implements ObjectDetection;
-		requires RGBD, JointMotor, YoloServer;
+		requires RGBD, JointMotor, YoloServer, OmniRobot;
 		subscribesTo AprilTags;
 	};
 	language Cpp;

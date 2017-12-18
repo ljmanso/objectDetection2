@@ -125,12 +125,16 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	
 	TObject taza;
 	taza.name = "tazaplace";
-	taza.bb.push_back(QVec::vec3(50,0,0));
-	taza.bb.push_back(QVec::vec3(-50,0,0));
-	taza.bb.push_back(QVec::vec3(0,120,0));
-	taza.bb.push_back(QVec::vec3(0,0,0));
-	taza.bb.push_back(QVec::vec3(0,0,50));
-	taza.bb.push_back(QVec::vec3(0,0,-50));
+// 	taza.bb.push_back(QVec::vec3(0,0,0));
+	taza.bb.push_back(QVec::vec3(50,0,50));
+	taza.bb.push_back(QVec::vec3(-50,0,50));
+	taza.bb.push_back(QVec::vec3(50,0,-50));
+	taza.bb.push_back(QVec::vec3(-50,-0,-50));
+
+	taza.bb.push_back(QVec::vec3(50,100,50));
+	taza.bb.push_back(QVec::vec3(-50,100,50));
+	taza.bb.push_back(QVec::vec3(50,100,-50));
+	taza.bb.push_back(QVec::vec3(-50,100,-50));
 	
 	listObjects.push_back(taza);
 	
@@ -206,7 +210,9 @@ void SpecificWorker::compute()
 				std::vector<QVec> bbInCam;
 				for(auto &b: o.bb)
 				{
-					QVec res = c->project(innermodel->transform("rgbd", b, o.name));
+					QVec gg = innermodel->transform("rgbd", b, o.name);
+					gg.print("a la camara");
+					QVec res = c->project(gg);
 					bbInCam.push_back(res);
 					res.print("res");
 				}
@@ -220,10 +226,8 @@ void SpecificWorker::compute()
 				RoboCompYoloServer::Box box;
 				box.x = xExtremes.first->x();
 				box.y = yExtremes.first->y();
-	/*			box.w = xExtremes.second->x() - xExtremes.first->x();
-				box.y = yExtremes.second->y() - yExtremes.first->y();
-	*/			box.w = xExtremes.second->x() ;
-				box.y = yExtremes.second->y() ;
+				box.w = xExtremes.second->x() ;
+				box.h = yExtremes.second->y() ;
 	
 				box.label = o.name.toStdString();
 				box.prob = 100;
@@ -340,6 +344,17 @@ bool SpecificWorker::pointCloudIsEqual()
 
 void SpecificWorker::updateinner()
 {
+	try
+	{
+		RoboCompGenericBase::TBaseState bState;
+		omnirobot_proxy->getBaseState(bState);
+		innermodel->updateTransformValues("robot", bState.x, 0, bState.z, 0, bState.alpha, 0);
+	}
+	catch(const Ice::Exception &e)
+	{
+		std::cout << e << std::endl;
+	}
+	
 	try
 	{
 		MotorList motors;

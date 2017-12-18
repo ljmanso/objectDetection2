@@ -25,7 +25,7 @@
   <color value="#AAAAAA" />
  </node>
 
- <node alias="rgbd" endpoint="rgbd:tcp -p 10096">
+ <node alias="rgbd" endpoint="rgbd:tcp -p 10097">
   <dependence alias="comJoint" />
   <workingDir path="/home/robocomp/" />
   <upCommand command="rcremote localhost rgbd /home/robocomp/robocomp/components/robocomp-robolab/components/openni2PCL bin/openNI2pcl --Ice.Config=/home/robocomp/robocomp/components/objectDetection2/etc/primesense.conf" />

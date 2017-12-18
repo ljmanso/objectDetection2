@@ -37,6 +37,8 @@
 #include <GenericBase.h>
 #include <JointMotor.h>
 #include <YoloServer.h>
+#include <OmniRobot.h>
+#include <GenericBase.h>
 
 #define CHECK_PERIOD 5000
 #define BASIC_PERIOD 100
@@ -46,6 +48,7 @@ typedef map <string,::IceProxy::Ice::Object*> MapPrx;
 using namespace std;
 
 using namespace RoboCompYoloServer;
+using namespace RoboCompOmniRobot;
 using namespace RoboCompGenericBase;
 using namespace RoboCompRGBD;
 using namespace RoboCompJointMotor;
@@ -74,8 +77,9 @@ public:
 
 
 	RGBDPrx rgbd_proxy;
-	JointMotorPrx jointmotor_proxy;
 	YoloServerPrx yoloserver_proxy;
+	JointMotorPrx jointmotor_proxy;
+	OmniRobotPrx omnirobot_proxy;
 
 	virtual bool findObjects(const StringVector &objectsTofind, ObjectVector &objects) = 0;
 	virtual void newAprilTagAndPose(const tagsList &tags, const RoboCompGenericBase::TBaseState &bState, const RoboCompJointMotor::MotorStateMap &hState) = 0;
