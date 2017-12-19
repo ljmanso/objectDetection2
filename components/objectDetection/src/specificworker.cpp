@@ -23,18 +23,18 @@
 */
 SpecificWorker::SpecificWorker(MapPrx& mprx) : GenericWorker(mprx)
 {
-	cloud = pcl::PointCloud<PointT>::Ptr(new pcl::PointCloud<PointT>());
-	ransac_inliers = pcl::PointIndices::Ptr(new pcl::PointIndices());
-	projected_plane = pcl::PointCloud<PointT>::Ptr(new pcl::PointCloud<PointT>());
-	cloud_hull = pcl::PointCloud<PointT>::Ptr(new pcl::PointCloud<PointT>());
-	prism_indices = pcl::PointIndices::Ptr(new pcl::PointIndices());
+// 	cloud = pcl::PointCloud<PointT>::Ptr(new pcl::PointCloud<PointT>());
+// 	ransac_inliers = pcl::PointIndices::Ptr(new pcl::PointIndices());
+// 	projected_plane = pcl::PointCloud<PointT>::Ptr(new pcl::PointCloud<PointT>());
+// 	cloud_hull = pcl::PointCloud<PointT>::Ptr(new pcl::PointCloud<PointT>());
+// 	prism_indices = pcl::PointIndices::Ptr(new pcl::PointIndices());
 	rgb_image = cv::Mat(480,640, CV_8UC3, cv::Scalar::all(0));
-	color_segmented = cv::Mat(480,640, CV_8UC3, cv::Scalar::all(0));
-	table = boost::shared_ptr<Table>(new Table());
-	descriptor_matcher = boost::shared_ptr<DESCRIPTORS>(new DESCRIPTORS());
+// 	color_segmented = cv::Mat(480,640, CV_8UC3, cv::Scalar::all(0));
+// 	table = boost::shared_ptr<Table>(new Table());
+// 	descriptor_matcher = boost::shared_ptr<DESCRIPTORS>(new DESCRIPTORS());
 	
 #ifdef USE_QTGUI
-	viewer = boost::shared_ptr<Viewer>(new Viewer(MEDIDA));
+	//viewer = boost::shared_ptr<Viewer>(new Viewer(MEDIDA));
 #endif
 	
 	tx = 0;
@@ -46,7 +46,7 @@ SpecificWorker::SpecificWorker(MapPrx& mprx) : GenericWorker(mprx)
 
 	test=false;
 	//let's set the sizes
-	table->set_board_size(500/MEDIDA,30/MEDIDA,500/MEDIDA);
+	//table->set_board_size(500/MEDIDA,30/MEDIDA,500/MEDIDA);
 
 	num_scene = 15;
 printf("%s %d\n", __FILE__, __LINE__);
@@ -56,19 +56,19 @@ printf("%s %d\n", __FILE__, __LINE__);
 	graphic->show();
 	item_pixmap=new QGraphicsPixmapItem();
 	scene.addItem(item_pixmap);
-	viewer->addPointCloud(cloud,"scene",1,0,0,0);
+	//viewer->addPointCloud(cloud,"scene",1,0,0,0);
 	
-// 	connect(reloadButton, SIGNAL(clicked()), this, SLOT(reloadDESCRIPTORS_Button()));
-// 	connect(goButton, SIGNAL(clicked()), this, SLOT(fullRun_Button()));
-// 	connect(findObjectButton, SIGNAL(clicked()), this, SLOT(findTheObject_Button()));
-// 	connect(saveViewButton, SIGNAL(clicked()), this, SLOT(saveView_Button()));
-// 	connect(ResetPoseButton, SIGNAL(clicked()), this, SLOT(ResetPose_Button()));
-	guess = QVec::zeros(6);
+	// 	connect(reloadButton, SIGNAL(clicked()), this, SLOT(reloadDESCRIPTORS_Button()));
+	// 	connect(goButton, SIGNAL(clicked()), this, SLOT(fullRun_Button()));
+	// 	connect(findObjectButton, SIGNAL(clicked()), this, SLOT(findTheObject_Button()));
+	// 	connect(saveViewButton, SIGNAL(clicked()), this, SLOT(saveView_Button()));
+	// 	connect(ResetPoseButton, SIGNAL(clicked()), this, SLOT(ResetPose_Button()));
+	//guess = QVec::zeros(6);
 	
 #endif
-	boost::filesystem::remove("training_data.h5");
-	boost::filesystem::remove("training_data.list");
-	image_path = "/home/robocomp/robocomp/components/prp/scene/Scene.png";
+	//boost::filesystem::remove("training_data.h5");
+	//boost::filesystem::remove("training_data.list");
+	//image_path = "/home/robocomp/robocomp/components/prp/scene/Scene.png";
 }
 
 /**
@@ -87,7 +87,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	id_robot=QString::fromStdString(params[name+".id_robot"].value);
 	id_camera=QString::fromStdString(params[name+".id_camera"].value);
 	id_camera_transform=QString::fromStdString(params[name+".id_camera_transform"].value);
-	pathLoadDescriptors = params[name+".pathLoadDescriptors"].value;
+/*	pathLoadDescriptors = params[name+".pathLoadDescriptors"].value;
 	viewpoint_transform = innermodel->getTransformationMatrix(id_robot,id_camera_transform);
 	descriptor_matcher->set_type_feature(params[name+".type_features"].value);
 	type_fitting = params[name+".type_fitting"].value;
@@ -98,6 +98,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	else if(params[name+".type_features"].value=="OUR-CVFH")
 		descriptors_extension="ourcvfh";
 	std::cout<<params[name+".type_features"].value<<" " <<descriptors_extension<<std::endl;
+	*/
 	if(params[name+".test"].value=="1")
 	{
 		std::cout<<"Modo test activo"<<std::endl;
@@ -111,17 +112,16 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		innermodel->updateJointValue(QString::fromStdString("head_pitch_joint"),0.710744);
 		innermodel->updateJointValue(QString::fromStdString("head_yaw_joint"),0.0102265);
 	}
-	timer.start(50);
 	
 	setState(States::Predict);
 	
-// 	RoboCompRGBD::ColorSeq rgbMatrix;
-// 	rgbd_proxy->getRGB(rgbMatrix,h,b);
-// 	for(unsigned int i=0; i<rgbMatrix.size(); i++)
-// 	{
-// 		int row = (i/640), column = i-(row*640);
-// 		last_rgb_image.at<cv::Vec3b>(row, column) = cv::Vec3b(rgbMatrix[i].blue, rgbMatrix[i].green, rgbMatrix[i].red);
-// 	}	
+	// 	RoboCompRGBD::ColorSeq rgbMatrix;
+	// 	rgbd_proxy->getRGB(rgbMatrix,h,b);
+	// 	for(unsigned int i=0; i<rgbMatrix.size(); i++)
+	// 	{
+	// 		int row = (i/640), column = i-(row*640);
+	// 		last_rgb_image.at<cv::Vec3b>(row, column) = cv::Vec3b(rgbMatrix[i].blue, rgbMatrix[i].green, rgbMatrix[i].red);
+	// 	}	
 	
 	TObject taza;
 	taza.name = "tazaplace";
@@ -130,14 +130,13 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	taza.bb.push_back(QVec::vec3(-50,0,50));
 	taza.bb.push_back(QVec::vec3(50,0,-50));
 	taza.bb.push_back(QVec::vec3(-50,-0,-50));
-
 	taza.bb.push_back(QVec::vec3(50,100,50));
 	taza.bb.push_back(QVec::vec3(-50,100,50));
 	taza.bb.push_back(QVec::vec3(50,100,-50));
 	taza.bb.push_back(QVec::vec3(-50,100,-50));
-	
 	listObjects.push_back(taza);
 	
+	timer.start(50);
 	return true;
 }
 
@@ -145,6 +144,8 @@ void SpecificWorker::compute()
 {
 	static int yoloId;
 	static QTime reloj = QTime::currentTime();
+	static float area = 0;
+	static QPoint boxError;
 	
 	//reloj.restart();
 	
@@ -172,37 +173,16 @@ void SpecificWorker::compute()
 	switch(state)
 	{
 		case States::Training:
-			#ifdef USE_QTGUI
-			if(guess != QVec::zeros(6))
-			{
-				tx = guess.x() + tx_Slider->value()/1.;
-				ty = guess.y() + ty_Slider->value()/1.;
-				tz = guess.z()/1000. + tz_Slider->value()/1000.;
-				rx = guess.rx();
-				ry = guess.ry();
-				rz = guess.rz();
-				QMat poseObjR=RTMat(rx/1000., ry/1000., rz/1000., tx, ty, tz);
-				viewer->updateCoordinateSystemPose(poseObjR,"poseobjectR");
-			}
-			#endif
 			break;
 
 		case States::Attention:
-			// Condiciones para pasar a Pipeline
-			if(imageChanges())
-				setState(States::Pipeline);
-			rgb_image.copyTo(last_rgb_image);
-//			last_cloud = copy_pointcloud(cloud);
 			break;
 		
 		case States::Pipeline:
-			//findTheObject_Button();
-			setState(States::Attention);
 			break;
 		
+		// project objects on camera creating yoloSLabels
 		case States::Predict:
-			// Go through objects and project it BB
-			// if inside frustrum draw boxes on image
 			yoloSLabels.lBox.clear();
 			for(auto &o: listObjects)
 			{
@@ -210,41 +190,31 @@ void SpecificWorker::compute()
 				std::vector<QVec> bbInCam;
 				for(auto &b: o.bb)
 				{
-					QVec gg = innermodel->transform("rgbd", b, o.name);
-					gg.print("a la camara");
-					QVec res = c->project(gg);
+					QVec res = c->project(innermodel->transform("rgbd", b, o.name));
 					bbInCam.push_back(res);
-					res.print("res");
 				}
 				
 				// check if pixel coordinates are inside image >0 and < 640
+				
 				// compute a bounding box of pixel coordinates
 				auto xExtremes = std::minmax_element(bbInCam.begin(), bbInCam.end(),
                                      [](const QVec& lhs, const QVec& rhs) { return lhs.x() < rhs.x();});
 				auto yExtremes = std::minmax_element(bbInCam.begin(), bbInCam.end(),
                                      [](const QVec& lhs, const QVec& rhs) { return lhs.y() < rhs.y();});
 				RoboCompYoloServer::Box box;
-				box.x = xExtremes.first->x();
-				box.y = yExtremes.first->y();
-				box.w = xExtremes.second->x() ;
-				box.h = yExtremes.second->y() ;
-	
+				box.x = xExtremes.first->x(); box.y = yExtremes.first->y(); box.w = xExtremes.second->x() ;	box.h = yExtremes.second->y() ;
 				box.label = o.name.toStdString();
 				box.prob = 100;
 				yoloSLabels.lBox.push_back(box);
+				setState(States::YoloInit);
 			}
 			
-			// Get list of regions
-			//setState(States::YoloInit);
-	
 		case States::YoloInit:
 			try
 			{
 				yoloId = yoloserver_proxy->addImage(yoloImage);
-				//qDebug() << "YoloInit";
 				reloj.restart();
 				setState(States::YoloWait);
-				//RoboCompYoloServer::Labels labels = yoloserver_proxy->getData(yoloId);
 			}
 			catch(const Ice::Exception &e){ std::cout << e << std::endl;}
 			break;
@@ -255,20 +225,45 @@ void SpecificWorker::compute()
 				yoloLabels = yoloserver_proxy->getData(yoloId);
 				if( yoloLabels.isReady )
 				{
-					//qDebug() << "YoloWait" << yoloLabels.lBox.size();
-					/*for(auto b: yoloLabels.lBox)
-						std::cout << b.label << " " << b.x << " " << b.y << " " << b.prob << std::endl;
-					*/
 					yoloLabelsBack = yoloLabels;
 					setState(States::Compare);
-					qDebug() << reloj.elapsed() << "mseconds";
+					//qDebug() << reloj.elapsed() << "mseconds";
 				}
 			}
 			catch(const Ice::Exception &e){std::cout << e << std::endl;}
 			break;
 			
 		case States::Compare:
-			//Compare yolo and inner lists and correct
+			
+			// check if the predicted labels are on sight				
+			area = 0;
+			setState(States::Predict);
+			for(auto &synth: yoloSLabels.lBox)
+				for(auto &yolo: yoloLabelsBack.lBox)
+					if( synth.label == "tazaplace" and yolo.label=="cup" )
+					{
+						//compute intersection percentage between synthetic and real
+						QRect rs(QPoint(synth.x,synth.y),QPoint(synth.w,synth.h));
+						QRect r(QPoint(yolo.x,yolo.y),QPoint(yolo.w,yolo.h));
+						QRect i = rs.intersected(r);
+						area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+						qDebug() << "area en Predict" << area;
+						
+						if( area < 0.5)  //STRESS situation
+						{
+							boxError = r.center() - rs.center();
+							setState(States::Stress);
+							break;
+						}
+					}
+			break;
+			
+		// correct the stressful situation
+		case States::Stress:
+			qDebug() << "In Stress area" << area;
+			InnerModelTransform *t = innermodel->getTransform("tazaplace");
+			float incAbajo = 0; float incDerecha = 10;
+			innermodel->updateTranslationValues("tazaplace", t->getTr().x() + boxError.y(), t->getTr().y(), t->getTr().z() + boxError.x());
 			setState(States::Predict);
 			break;
 	}

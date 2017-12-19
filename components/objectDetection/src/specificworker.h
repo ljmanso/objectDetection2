@@ -26,20 +26,20 @@
 #define SPECIFICWORKER_H
 
 #ifndef Q_MOC_RUN
- #include <pcl/point_cloud.h>
- #include <pcl/pcl_base.h>
- #include <pcl/point_types.h>
- #include <pcl/filters/passthrough.h>
- #include <pcl/segmentation/extract_clusters.h>
- #include <pcl/filters/statistical_outlier_removal.h>
- #include <pcl/conversions.h>
- #include <pcl/point_types_conversion.h>
+//  #include <pcl/point_cloud.h>
+//  #include <pcl/pcl_base.h>
+//  #include <pcl/point_types.h>
+//  #include <pcl/filters/passthrough.h>
+//  #include <pcl/segmentation/extract_clusters.h>
+//  #include <pcl/filters/statistical_outlier_removal.h>
+//  #include <pcl/conversions.h>
+//  #include <pcl/point_types_conversion.h>
  #include <opencv2/core/core.hpp>
  #include <opencv2/highgui/highgui.hpp>
  #include <opencv2/imgproc/imgproc.hpp>
- #include <pcl/surface/convex_hull.h>
- #include <pcl/surface/concave_hull.h>
- #include <boost/thread/thread.hpp>
+ //#include <pcl/surface/convex_hull.h>
+ //#include <pcl/surface/concave_hull.h>
+ //#include <boost/thread/thread.hpp>
 #endif
 
 #include <genericworker.h>
@@ -47,14 +47,14 @@
 #ifndef Q_MOC_RUN
 	#include <innermodel/innermodel.h>
 	#include <innermodel/innermodelviewer.h>
-	#include "color_segmentation/Segmentator.h"
-	#include "shapes/table.h"
-	#include "descriptors/descriptors.h"
+	//#include "color_segmentation/Segmentator.h"
+	//#include "shapes/table.h"
+	//#include "descriptors/descriptors.h"
 	#ifdef USE_QTGUI
 		#include "viewer/viewer.h"
 		#include <QGraphicsPixmapItem>
 	#endif
-	#include "pointcloud/pointcloud.h"
+	//#include "pointcloud/pointcloud.h"
 	#include "time.h"
 #endif
 
@@ -82,7 +82,7 @@ typedef pcl::PointXYZRGB PointT;
 using namespace computepointcloud;
 
 
-enum class States { Training, Attention, Pipeline, YoloInit, YoloWait, Predict, Compare };
+enum class States { Training, Attention, Pipeline, YoloInit, YoloWait, Predict, Compare, Stress };
 
 class SpecificWorker : public GenericWorker
 {
@@ -90,7 +90,7 @@ class SpecificWorker : public GenericWorker
 	float tx, ty, tz, rx, ry, rz;
 	bool test;
 	QString id_robot, id_camera,id_camera_transform;
-	string descriptors_extension, pathLoadDescriptors, type_fitting;
+//	string descriptors_extension, pathLoadDescriptors, type_fitting;
 	InnerModel *innermodel;
 	StringVector lObjectsTofind;
 
@@ -102,41 +102,41 @@ class SpecificWorker : public GenericWorker
 	int num_pose;
 	int num_scene;
 
-	pcl::PCDWriter writer;
+//	pcl::PCDWriter writer;
 
 	//Cloud of the current points for pcl
-	pcl::PointCloud<PointT>::Ptr cloud;
-	pcl::PointIndices::Ptr ransac_inliers;
-	pcl::PointCloud<PointT>::Ptr projected_plane;
-	pcl::PointCloud<PointT>::Ptr cloud_hull;
-	pcl::PointIndices::Ptr prism_indices;
+// 	pcl::PointCloud<PointT>::Ptr cloud;
+// 	pcl::PointIndices::Ptr ransac_inliers;
+// 	pcl::PointCloud<PointT>::Ptr projected_plane;
+// 	pcl::PointCloud<PointT>::Ptr cloud_hull;
+// 	pcl::PointIndices::Ptr prism_indices;
 
 	//Image of the current view for opencv
 	cv::Mat rgb_image;
-	cv::Mat color_segmented;
-	RTMat viewpoint_transform;
+// 	cv::Mat color_segmented;
+// 	RTMat viewpoint_transform;
 	
 	cv::Mat last_rgb_image; //Last image
-	pcl::PointCloud<PointT>::Ptr last_cloud; //Last cloud
+	//pcl::PointCloud<PointT>::Ptr last_cloud; //Last cloud
 
 	//Point cloud grabing
 	RoboCompRGBD::ColorSeq rgbMatrix;
-	RoboCompRGBD::depthType distanceMatrix;
-	RoboCompRGBD::PointSeq points_kinect;
+	//RoboCompRGBD::depthType distanceMatrix;
+	//RoboCompRGBD::PointSeq points_kinect;
 	RoboCompJointMotor::MotorStateMap h;
 	RoboCompGenericBase::TBaseState b;
 
 	//color Segmentator
-	Segmentator segmentator;
+	//Segmentator segmentator;
 
 	//euclidean clustering
-	std::vector<pcl::PointIndices> cluster_indices;
-	std::vector<pcl::PointCloud<PointT>::Ptr> cluster_clouds;
+	//std::vector<pcl::PointIndices> cluster_indices;
+	//std::vector<pcl::PointCloud<PointT>::Ptr> cluster_clouds;
 
 	//VFH
-	boost::shared_ptr<DESCRIPTORS> descriptor_matcher;
-	std::vector<DESCRIPTORS::file_dist_t> descriptor_guesses;
-	boost::shared_ptr<Table> table;
+	//boost::shared_ptr<DESCRIPTORS> descriptor_matcher;
+	//std::vector<DESCRIPTORS::file_dist_t> descriptor_guesses;
+	//boost::shared_ptr<Table> table;
 
 #ifdef USE_QTGUI
 	QGraphicsPixmapItem* item_pixmap;
@@ -145,11 +145,11 @@ class SpecificWorker : public GenericWorker
 
 	QGraphicsScene scene;
 
-	boost::shared_ptr<Viewer> viewer;
-	QVec guess;
+	//boost::shared_ptr<Viewer> viewer;
+	//QVec guess;
 
 #endif
-	pcl::PointCloud< PointT >::Ptr copy_scene;
+	//pcl::PointCloud< PointT >::Ptr copy_scene;
 
 
 Q_OBJECT
@@ -205,7 +205,7 @@ private:
 //  	void loadTrainedDESCRIPTORS();
 //  	void descriptors(StringVector &guesses);
 //  	bool aprilSeen(QVec &offset);
-  	void reloadDESCRIPTORS(){};
+// 		void reloadDESCRIPTORS(){};
 //  	void getPose(ObjectType &Obj, string file_view_mathing, 	pcl::PointCloud<PointT>::Ptr obj_scene);
 // 	void segmentImage();
 // 	void passThrough();
