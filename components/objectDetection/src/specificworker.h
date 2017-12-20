@@ -51,7 +51,7 @@
 	//#include "shapes/table.h"
 	//#include "descriptors/descriptors.h"
 	#ifdef USE_QTGUI
-		#include "viewer/viewer.h"
+		//#include "viewer/viewer.h"
 		#include <QGraphicsPixmapItem>
 	#endif
 	//#include "pointcloud/pointcloud.h"
@@ -77,9 +77,9 @@
     } \
   }
 
-typedef pcl::PointXYZRGB PointT;
+//typedef pcl::PointXYZRGB PointT;
 
-using namespace computepointcloud;
+//using namespace computepointcloud;
 
 
 enum class States { Training, Attention, Pipeline, YoloInit, YoloWait, Predict, Compare, Stress };
@@ -226,10 +226,29 @@ private:
 	//Objects geometry
 	struct TObject
 	{
-		QString name;
-		std::vector<QVec> bb;
+		QString name;			//instance
+		std::string type;			//class
+		bool explained;		
+		int idx;
+		std::vector<QVec> bb;	//bounding box
+		std::vector<QVec> projbb;
+		float intersectArea;
+		QPoint error;
+		QVec pose;
+		RoboCompYoloServer::Box box;
+		TObject() 
+		{
+			name = "";
+			type = "cup";
+			explained = false;
+			intersectArea = 0;
+			idx = -1;
+		};
 	};
-	std::vector<TObject> listObjects;
+	
+	typedef std::vector<TObject> TObjects;
+	TObjects listObjects;
+	TObjects newCandidates;
 	
 	//Synthetic yolo
 	RoboCompYoloServer::Labels yoloSLabels;

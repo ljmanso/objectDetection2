@@ -239,9 +239,9 @@
 				<mesh id="countertopA_mesh" file="/home/robocomp/robocomp/files/osgModels/basics/cube2.3ds" scale="650,20,2500" collide="1" />
 				
 				<!-- Insertar objetos de la mesa aqui-->
-				<transform id="tazaplace" tx="0" ty="5" tz="0" ry="1.5707963267948966">
-					<axes id="axestaza" length="80" width="20" />
-					<mesh id="taza" file="/home/robocomp/robocomp/files/osgModels/mobiliario/taza.osg"  tx="0" ty="0" tz="0" rx="1.57079632679" rz="-1.57079632679" scale="120"/>
+				<transform id="taza_1" tx="0" ty="5" tz="0" ry="1.5707963267948966">
+					<axes id="axestaza_1" length="80" width="20" />
+					<mesh id="taza_mesh_1" file="/home/robocomp/robocomp/files/osgModels/mobiliario/taza.osg"  tx="0" ty="0" tz="0" rx="1.57079632679" rz="-1.57079632679" scale="120"/>
 					
 				</transform>
 				
