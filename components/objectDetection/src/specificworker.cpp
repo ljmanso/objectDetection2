@@ -192,6 +192,7 @@ void SpecificWorker::compute()
 			yoloSLabels.lBox.clear();
 			for(auto &o: listObjects)
 			{
+				qDebug() << "Predict" << o.name;
 				o.projbb.clear();
 				InnerModelCamera *c = innermodel->getCamera("rgbd");
 				std::vector<QVec> bbInCam;
@@ -249,6 +250,7 @@ void SpecificWorker::compute()
 				qDebug() << "Compare: analyzing from listObjects" << synth.name << QString::fromStdString(synth.type);
 				synth.intersectArea = 0;
 				synth.explained = false;
+				synth.candidates.clear();
 				for(auto &yolo: yoloLabelsBack.lBox)
 				{
 					qDebug() << "	Compare: analyzing from yoloObjects" << QString::fromStdString(yolo.label);
@@ -261,8 +263,8 @@ void SpecificWorker::compute()
 						QRect i = rs.intersected(r);
 						//synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
 						float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
-						qDebug() << "	Compare: area" << area;
 						QPoint error = r.center() - rs.center();
+						qDebug() << "	Compare: area" << area << error.manhattanLength();
 						if(area >= 0 and error.manhattanLength()< rs.width())
 							synth.candidates.push_back(std::make_pair(area, error));
 						else
@@ -279,47 +281,16 @@ void SpecificWorker::compute()
 						}
 					}
 				}
-				std::vector<std::pair<float, QPoint>>::iterator maxIdx = 
-						std::max_element(synth.candidates.begin(), synth.candidates.end(), [](std::pair<float, QPoint> a, std::pair<float, QPoint> b)
-						{ return a.first > b.first;});
-				// decide which element explains the synth and release all others
-				qDebug() << maxIdx->first;
-					
+				
+				//sort candidates by intersection area first and center distances if equal areas
+				std::sort(synth.candidates.begin(), synth.candidates.end(), [](auto a, auto b)
+				{ return (a.first > b.first) or ((a.first==b.first) and (a.second.manhattanLength() < b.second.manhattanLength())); });
 						
-// 					{
-// 						qDebug() << "	Compare: explaining " << synth.name;
-// 						//compute intersection percentage between synthetic and real
-// 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
-// 						QRect i = rs.intersected(r);
-// 						synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
-// 						qDebug() << "	Compare: area" << synth.intersectArea;
-// 						synth.error = r.center() - rs.center();
-// 						
-// 						if(synth.intersectArea > 0 and synth.intersectArea <=1)
-// 						{
-// 							qDebug() << "	Compare: intersecting" << synth.intersectArea;
-// 							synth.explained = true;
-// 						}
-// 						else if(synth.intersectArea == 0 and synth.error.manhattanLength() < rs.width() )
-// 						{
-// 							qDebug() << "	Compare: not intersecting but close" << synth.intersectArea;
-// 							synth.explained = true;
-// 						}
-// 						else //too far
-// 							synth.explained = false;
-// 					}
-// 					else	// potential new object
-// 					{
-// 						qDebug() << "	Compare: potential new object";
-// 						TObject n;
-// 						n.type = yolo.label;
-// 						
-// 						// get 3D pose from RGBD
-// 						int idx = r.center().x()*640 + r.center().y();
-// 						RoboCompRGBD::PointXYZ p = pointMatrix[idx];
-// 						n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
-// 						newCandidates.push_back(n);
-// 					}
+				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
+				for(auto c: synth.candidates)
+					qDebug() << "candidates" << c.first << c.second;
+				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
+			
 			}
 			setState(States::Stress);
 			break;
@@ -347,14 +318,24 @@ void SpecificWorker::compute()
 				QVec ot = innermodel->transform("countertopA", n.pose, "rgbd" );
 				// create a new unused name
 				QString name = QString::fromStdString(n.type);
-				//InnerModelTransform *obj = innermodel->newTransform(name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);
 				TObject to;
 				to.type = "cup";
 				TObjects::iterator maxIdx =  std::max_element(listObjects.begin(), listObjects.end(), [](TObject a, TObject b){ return a.idx > b.idx;});
 				to.idx = maxIdx->idx + 1;
 				to.name = "cup_" + QString::number(to.idx);
+				to.explained = false;
 				qDebug() << "Inserto" << to.name;
-				//listObjects.push_back(to);
+				try{InnerModelTransform *obj = innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);}
+				catch(QString s){ qDebug() << s;}
+				to.bb.push_back(QVec::vec3(50,0,50));
+				to.bb.push_back(QVec::vec3(-50,0,50));
+				to.bb.push_back(QVec::vec3(50,0,-50));
+				to.bb.push_back(QVec::vec3(-50,-0,-50));
+				to.bb.push_back(QVec::vec3(50,100,50));
+				to.bb.push_back(QVec::vec3(-50,100,50));
+				to.bb.push_back(QVec::vec3(50,100,-50));
+				to.bb.push_back(QVec::vec3(-50,100,-50));
+				listObjects.push_back(to);
 			}
 			setState(States::Predict);
 			break;
@@ -1284,3 +1265,48 @@ void SpecificWorker::newAprilTag(const tagsList &tags)
 // 	guess = QVec::zeros(6);
 // }
 // #endif
+
+//////////////////////////////////77 PABLO
+
+
+	//if several minima, sort by distance
+				//std::vector<std::pair<float,QPoint>> matches;
+				//std::copy_if(synth.candidates.begin(), synth.candidates.end(), std::back_inserter(matches), 
+				//			 [synth](auto v) { return v.first == synth.candidates.front().first;});
+				
+					
+						
+// 					{
+// 						qDebug() << "	Compare: explaining " << synth.name;
+// 						//compute intersection percentage between synthetic and real
+// 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
+// 						QRect i = rs.intersected(r);
+// 						synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+// 						qDebug() << "	Compare: area" << synth.intersectArea;
+// 						synth.error = r.center() - rs.center();
+// 						
+// 						if(synth.intersectArea > 0 and synth.intersectArea <=1)
+// 						{
+// 							qDebug() << "	Compare: intersecting" << synth.intersectArea;
+// 							synth.explained = true;
+// 						}
+// 						else if(synth.intersectArea == 0 and synth.error.manhattanLength() < rs.width() )
+// 						{
+// 							qDebug() << "	Compare: not intersecting but close" << synth.intersectArea;
+// 							synth.explained = true;
+// 						}
+// 						else //too far
+// 							synth.explained = false;
+// 					}
+// 					else	// potential new object
+// 					{
+// 						qDebug() << "	Compare: potential new object";
+// 						TObject n;
+// 						n.type = yolo.label;
+// 						
+// 						// get 3D pose from RGBD
+// 						int idx = r.center().x()*640 + r.center().y();
+// 						RoboCompRGBD::PointXYZ p = pointMatrix[idx];
+// 						n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
+// 						newCandidates.push_back(n);
+// 					}
