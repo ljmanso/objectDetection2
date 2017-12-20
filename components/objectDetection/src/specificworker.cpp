@@ -253,42 +253,73 @@ void SpecificWorker::compute()
 				{
 					qDebug() << "	Compare: analyzing from yoloObjects" << QString::fromStdString(yolo.label);
 					QRect r(QPoint(yolo.x,yolo.y),QPoint(yolo.w,yolo.h));
-					if( synth.type == yolo.label and !synth.explained)
+					if( synth.type == yolo.label)
 					{
 						qDebug() << "	Compare: explaining " << synth.name;
 						//compute intersection percentage between synthetic and real
 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
 						QRect i = rs.intersected(r);
-						synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
-						qDebug() << "	Compare: area" << synth.intersectArea;
-						synth.error = r.center() - rs.center();
-						
-						if(synth.intersectArea > 0 and synth.intersectArea <=1)
+						//synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+						float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+						qDebug() << "	Compare: area" << area;
+						QPoint error = r.center() - rs.center();
+						if(area >= 0 and error.manhattanLength()< rs.width())
+							synth.candidates.push_back(std::make_pair(area, error));
+						else
 						{
-							qDebug() << "	Compare: intersecting" << synth.intersectArea;
-							synth.explained = true;
-						}
-						else if(synth.intersectArea == 0 and synth.error.manhattanLength() < rs.width() )
-						{
-							qDebug() << "	Compare: not intersecting but close" << synth.intersectArea;
-							synth.explained = true;
-						}
-						else 
-							synth.explained = false;
-					}
-					else	// potential new object
-					{
-						qDebug() << "	Compare: potential new object";
-						TObject n;
-						n.type = yolo.label;
+							qDebug() << "	Compare: potential new object";
+							TObject n;
+							n.type = yolo.label;
 						
-						// get 3D pose from RGBD
-						int idx = r.center().x()*640 + r.center().y();
-						RoboCompRGBD::PointXYZ p = pointMatrix[idx];
-						n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
-						newCandidates.push_back(n);
+							// get 3D pose from RGBD
+							int idx = r.center().x()*640 + r.center().y();
+							RoboCompRGBD::PointXYZ p = pointMatrix[idx];
+							n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
+							newCandidates.push_back(n);
+						}
 					}
 				}
+				std::vector<std::pair<float, QPoint>>::iterator maxIdx = 
+						std::max_element(synth.candidates.begin(), synth.candidates.end(), [](std::pair<float, QPoint> a, std::pair<float, QPoint> b)
+						{ return a.first > b.first;});
+				// decide which element explains the synth and release all others
+				qDebug() << maxIdx->first;
+					
+						
+// 					{
+// 						qDebug() << "	Compare: explaining " << synth.name;
+// 						//compute intersection percentage between synthetic and real
+// 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
+// 						QRect i = rs.intersected(r);
+// 						synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+// 						qDebug() << "	Compare: area" << synth.intersectArea;
+// 						synth.error = r.center() - rs.center();
+// 						
+// 						if(synth.intersectArea > 0 and synth.intersectArea <=1)
+// 						{
+// 							qDebug() << "	Compare: intersecting" << synth.intersectArea;
+// 							synth.explained = true;
+// 						}
+// 						else if(synth.intersectArea == 0 and synth.error.manhattanLength() < rs.width() )
+// 						{
+// 							qDebug() << "	Compare: not intersecting but close" << synth.intersectArea;
+// 							synth.explained = true;
+// 						}
+// 						else //too far
+// 							synth.explained = false;
+// 					}
+// 					else	// potential new object
+// 					{
+// 						qDebug() << "	Compare: potential new object";
+// 						TObject n;
+// 						n.type = yolo.label;
+// 						
+// 						// get 3D pose from RGBD
+// 						int idx = r.center().x()*640 + r.center().y();
+// 						RoboCompRGBD::PointXYZ p = pointMatrix[idx];
+// 						n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
+// 						newCandidates.push_back(n);
+// 					}
 			}
 			setState(States::Stress);
 			break;

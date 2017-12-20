@@ -236,6 +236,7 @@ private:
 		QPoint error;
 		QVec pose;
 		RoboCompYoloServer::Box box;
+		std::vector<std::pair<float, QPoint>> candidates;
 		TObject() 
 		{
 			name = "";
