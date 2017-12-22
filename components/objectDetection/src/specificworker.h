@@ -251,10 +251,22 @@ private:
 		};
 	};
 	
+	struct TCandidate
+	{
+	  float area;
+	  QPoint error;
+	  TObject *yolo;
+	};
+	
 	typedef std::vector<TObject> TObjects;
+	typedef std::vector<TObject*> TObjectsPtr;
+	
 	TObjects listObjects;
 	TObjects listYoloObjects;
-	TObjects newCandidates;
+	TObjects listCreate;
+	TObjects listDelete;
+	TObjectsPtr listUpdate;
+	//TObjects candidates;
 	
 	
 	//Synthetic yolo

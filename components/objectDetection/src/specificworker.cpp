@@ -145,7 +145,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 void SpecificWorker::compute()
 {
 	static int yoloId;
-	static QTime reloj = QTime::currentTime();
+	//static QTime reloj = QTime::currentTime();
 	
 	//reloj.restart();
 	
@@ -250,138 +250,85 @@ void SpecificWorker::compute()
 		case States::Compare:
 			// check if the predicted labels are on sight				
 			setState(States::Predict);
-			newCandidates.clear();
+			listCreate.clear();
 			for(auto &synth: listObjects)
 			{
 				qDebug() << "Compare: analyzing from listObjects" << synth.name << QString::fromStdString(synth.type);
 				synth.intersectArea = 0;
 				synth.explained = false;
 				synth.candidates.clear();
-				//for(auto &yolo: yoloLabelsBack.lBox)
+				std::vector<TCandidate> listCandidates;
 				for(auto &yolo: listYoloObjects)  
 				{
-					qDebug() << "	analyzing from yoloObjects" << QString::fromStdString(yolo.type);
-					QRect r(QPoint(yolo.box.x,yolo.box.y),QPoint(yolo.box.w,yolo.box.h));
 					if( synth.type == yolo.type)
 					{
+						qDebug() << "	analyzing from yoloObject:" << QString::fromStdString(yolo.type);
+						QRect r(QPoint(yolo.box.x,yolo.box.y),QPoint(yolo.box.w,yolo.box.h));
 						//compute intersection percentage between synthetic and real
 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
 						QRect i = rs.intersected(r);
-						//synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
 						float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
 						QPoint error = r.center() - rs.center();
 						qDebug() << "		area" << area <<"dist" << error.manhattanLength() << "dist THRESHOLD" << rs.width();
+						
 						if(area > 0 or error.manhattanLength()< rs.width()*2)
 						{
-							synth.candidates.push_back(std::make_pair(area, error));
-							qDebug() << "		explain candidate for" << synth.name;
+						  TCandidate tc = {area,error,&yolo};
+						  listCandidates.insert(std::upper_bound( listCandidates.begin(), listCandidates.end(),tc,
+ 													[](auto a, auto b) { return (a.area > b.area) or ((a.area==b.area) and (a.error.manhattanLength() < b.error.manhattanLength()));}), 
+ 													tc);							  
+						  qDebug() << "		explain candidate for" << synth.name;
 						}
-// 						else
-// 						{
-// 							qDebug() << "		new object candidate for," << synth.name;
-// 							TObject n;
-// 							n.type = yolo.type;
-// 						
-// 							// get 3D pose from RGBD
-// 							int idx = r.center().y()*640 + r.center().x();
-// 							RoboCompRGBD::PointXYZ p = pointMatrix[idx];
-// 							n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
-// 							newCandidates.push_back(n);
-// 						}
 					}
 				}
-				
-				
-				//sort candidates by intersection area first and center distances if equal areas
-				std::sort(synth.candidates.begin(), synth.candidates.end(), [](auto a, auto b)
-				{ return (a.first > b.first) or ((a.first==b.first) and (a.second.manhattanLength() < b.second.manhattanLength())); });
-			/*	if( synth.candidates.size() > 0)
+				if(listCandidates.empty() == false)
 				{
+				  listCandidates.front().yolo->assigned = true;
+				  synth.intersectArea = listCandidates.front().area;
+				  synth.error = listCandidates.front().error;
 				  synth.explained = true;
-				  synth.intersectArea = 
 				}
-			*/			
-				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
-				for(auto c: synth.candidates)
-					qDebug() << "candidates" << c.first << c.second;
-				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
 			}
-			//Go through candidates to select final ones
 			
-			//Create delete and create lists
+			//DeleteList: Extract objects not explained by measurements
+			for(auto &o : listObjects)
+			  if(o.explained == false)
+				listDelete.push_back(o);
 			
+			//CreateList: objects to be created due to measurements not assigned to objects
+			for(auto &y: listYoloObjects)
+			  if(y.assigned == false)
+			  {
+				TObject n;
+				n.type = y.type;
+				// get 3D pose from RGBD
+				QRect r(QPoint(y.box.x,y.box.y),QPoint(y.box.w,y.box.h));
+				int idx = r.center().y()*640 + r.center().x();
+				RoboCompRGBD::PointXYZ p = pointMatrix[idx];
+				n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
+				listCreate.push_back(n);
+			  }
 			
 			setState(States::Stress);
-			break;
-			
-// 		case States::Compare:
-// 			for(auto &yolo: listYoloObjects)
-// 			{
-// 				qDebug() << "Compare: analyzing from yoloObjects" << yolo.name << QString::fromStdString(yolo.type);
-// 				for(auto &synth: listObjects)  
-// 				{
-// 					qDebug() << "	analyzing from Objects" << QString::fromStdString(synth.type);
-// 					synth.intersectArea = 0;
-// 					synth.explained = false;
-// 					synth.candidates.clear();
-// 				
-// 					QRect r(QPoint(yolo.box.x,yolo.box.y),QPoint(yolo.box.w,yolo.box.h));
-// 					if( synth.type == yolo.type)
-// 					{
-// 						//compute intersection percentage between synthetic and real
-// 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
-// 						QRect i = rs.intersected(r);
-// 						float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
-// 						QPoint error = r.center() - rs.center();
-// 						qDebug() << "		area" << area <<"dist" << error.manhattanLength() << "dist THRESHOLD" << rs.width();
-// 						if(area > 0 and error.manhattanLength()< rs.width()*2)
-// 						{
-// 							explaincandidates.push_back(std::make_pair(area, error));
-// 							qDebug() << "		" << yolo.name << " is aexplain candidate for" << synth.name;
-// 						}
-// 					}
-// 				}
-// 				
-// 				//sort candidates by intersection area first and center distances if equal areas
-// 				std::sort(synth.candidates.begin(), synth.candidates.end(), [](auto a, auto b)
-// 				{ return (a.first > b.first) or ((a.first==b.first) and (a.second.manhattanLength() < b.second.manhattanLength())); });
-// 			/*	if( synth.candidates.size() > 0)
-// 				{
-// 				  synth.explained = true;
-// 				  synth.intersectArea = 
-// 				}
-// 			*/			
-// 				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
-// 				for(auto c: synth.candidates)
-// 					qDebug() << "candidates" << c.first << c.second;
-// 				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
-// 			
-// 			}
-// 			setState(States::Stress);
-// 			break;
-// 			
+			break;			
 			
 		// correct the stressful situation
 		case States::Stress:
-			qDebug() << "Stress: size of listObjects" << listObjects.size();
+			//qDebug() << "Stress: size of listObjects" << listObjects.size();
 			for(auto &synth: listObjects)
 			{
-				if(synth.candidates.size() > 0)	// local corrections
+				if(synth.explained)
 				{
-					QPoint error = synth.candidates.front().second;
-	  				qDebug() << "	correcting" << synth.name  << "error" << error;
-					InnerModelTransform *t = innermodel->getTransform(synth.name);
-					innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
-				}
-				else 	// delete unexplained objects
-				{
-					qDebug() << "	unexplained" << synth.name << synth.intersectArea << "explained" << synth.explained << "error" << synth.error;				
+				  QPoint error = synth.error;
+				  qDebug() << "	correcting" << synth.name  << "error" << error;
+				  InnerModelTransform *t = innermodel->getTransform(synth.name);
+				  innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
 				}
 			}
 			
-			qDebug() << "Stress: size of newCandidates" << newCandidates.size();
+			qDebug() << "Stress: size of newCandidates" << listCreate.size();
 			if(listObjects.size() < MAX_OBJECTS)
-			  for(auto &n: newCandidates)
+			  for(auto &n: listCreate)
 			  {
 				  if(n.type != "cup")  //Only cups for now
 					  continue;
