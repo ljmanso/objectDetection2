@@ -65,6 +65,8 @@
 #define MEDIDA 1.
 #define offset_object 0.
 
+#define MAX_OBJECTS 5
+
 #define SUB(dst, src1, src2) \
   { \
     if ((src2)->tv_nsec > (src1)->tv_nsec) { \
@@ -235,6 +237,8 @@ private:
 		float intersectArea;
 		QPoint error;
 		QVec pose;
+		bool assigned;
+		float prob;
 		RoboCompYoloServer::Box box;
 		std::vector<std::pair<float, QPoint>> candidates;
 		TObject() 
@@ -249,7 +253,9 @@ private:
 	
 	typedef std::vector<TObject> TObjects;
 	TObjects listObjects;
+	TObjects listYoloObjects;
 	TObjects newCandidates;
+	
 	
 	//Synthetic yolo
 	RoboCompYoloServer::Labels yoloSLabels;

@@ -124,9 +124,9 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	// 	}	
 	
 	TObject taza;
-	taza.name = "taza_1";
+	taza.name = "taza_0";
 	taza.type = "cup";
-	taza.idx = 1;
+	taza.idx = 0;
 	taza.explained = false;
 	taza.bb.push_back(QVec::vec3(50,0,50));
 	taza.bb.push_back(QVec::vec3(-50,0,50));
@@ -189,7 +189,6 @@ void SpecificWorker::compute()
 		
 		// project objects on camera creating yoloSLabels
 		case States::Predict:
-			yoloSLabels.lBox.clear();
 			for(auto &o: listObjects)
 			{
 				qDebug() << "Predict" << o.name;
@@ -202,8 +201,7 @@ void SpecificWorker::compute()
 					bbInCam.push_back(res);
 				}
 				
-				// check if pixel coordinates are inside image >0 and < 640
-				
+				// should check if pixel coordinates are inside image >0 and < 640		
 				// compute a bounding box of pixel coordinates
 				auto xExtremes = std::minmax_element(bbInCam.begin(), bbInCam.end(),
                                      [](const QVec& lhs, const QVec& rhs) { return lhs.x() < rhs.x();});
@@ -212,7 +210,6 @@ void SpecificWorker::compute()
 				o.box.x = xExtremes.first->x(); o.box.y = yExtremes.first->y(); o.box.w = xExtremes.second->x(); o.box.h = yExtremes.second->y() ;
 				o.box.label = o.name.toStdString();
 				o.box.prob = 100;
-				yoloSLabels.lBox.push_back(o.box);
 				setState(States::YoloInit);
 			}
 			
@@ -220,7 +217,7 @@ void SpecificWorker::compute()
 			try
 			{
 				yoloId = yoloserver_proxy->addImage(yoloImage);
-				reloj.restart();
+				//reloj.restart();
 				setState(States::YoloWait);
 			}
 			catch(const Ice::Exception &e){ std::cout << e << std::endl;}
@@ -232,7 +229,17 @@ void SpecificWorker::compute()
 				yoloLabels = yoloserver_proxy->getData(yoloId);
 				if( yoloLabels.isReady )
 				{
-					yoloLabelsBack = yoloLabels;
+					//yoloLabelsBack = yoloLabels;
+					listYoloObjects.clear();
+					for(auto y: yoloLabels.lBox)
+					{
+					  TObject o;
+					  o.type = y.label;
+					  o.box.x = y.x; o.box.y = y.y;o.box.w = y.w; o.box.h = y.h;
+					  o.assigned = false;
+					  o.prob = y.prob;
+					  listYoloObjects.push_back(o);
+					}
 					setState(States::Compare);
 					//qDebug() << reloj.elapsed() << "mseconds";
 				}
@@ -241,7 +248,6 @@ void SpecificWorker::compute()
 			break;
 			
 		case States::Compare:
-			
 			// check if the predicted labels are on sight				
 			setState(States::Predict);
 			newCandidates.clear();
@@ -251,92 +257,158 @@ void SpecificWorker::compute()
 				synth.intersectArea = 0;
 				synth.explained = false;
 				synth.candidates.clear();
-				for(auto &yolo: yoloLabelsBack.lBox)
+				//for(auto &yolo: yoloLabelsBack.lBox)
+				for(auto &yolo: listYoloObjects)  
 				{
-					qDebug() << "	Compare: analyzing from yoloObjects" << QString::fromStdString(yolo.label);
-					QRect r(QPoint(yolo.x,yolo.y),QPoint(yolo.w,yolo.h));
-					if( synth.type == yolo.label)
+					qDebug() << "	analyzing from yoloObjects" << QString::fromStdString(yolo.type);
+					QRect r(QPoint(yolo.box.x,yolo.box.y),QPoint(yolo.box.w,yolo.box.h));
+					if( synth.type == yolo.type)
 					{
-						qDebug() << "	Compare: explaining " << synth.name;
 						//compute intersection percentage between synthetic and real
 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
 						QRect i = rs.intersected(r);
 						//synth.intersectArea = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
 						float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
 						QPoint error = r.center() - rs.center();
-						qDebug() << "	Compare: area" << area << error.manhattanLength();
-						if(area >= 0 and error.manhattanLength()< rs.width())
-							synth.candidates.push_back(std::make_pair(area, error));
-						else
+						qDebug() << "		area" << area <<"dist" << error.manhattanLength() << "dist THRESHOLD" << rs.width();
+						if(area > 0 or error.manhattanLength()< rs.width()*2)
 						{
-							qDebug() << "	Compare: potential new object";
-							TObject n;
-							n.type = yolo.label;
-						
-							// get 3D pose from RGBD
-							int idx = r.center().x()*640 + r.center().y();
-							RoboCompRGBD::PointXYZ p = pointMatrix[idx];
-							n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
-							newCandidates.push_back(n);
+							synth.candidates.push_back(std::make_pair(area, error));
+							qDebug() << "		explain candidate for" << synth.name;
 						}
+// 						else
+// 						{
+// 							qDebug() << "		new object candidate for," << synth.name;
+// 							TObject n;
+// 							n.type = yolo.type;
+// 						
+// 							// get 3D pose from RGBD
+// 							int idx = r.center().y()*640 + r.center().x();
+// 							RoboCompRGBD::PointXYZ p = pointMatrix[idx];
+// 							n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
+// 							newCandidates.push_back(n);
+// 						}
 					}
 				}
+				
 				
 				//sort candidates by intersection area first and center distances if equal areas
 				std::sort(synth.candidates.begin(), synth.candidates.end(), [](auto a, auto b)
 				{ return (a.first > b.first) or ((a.first==b.first) and (a.second.manhattanLength() < b.second.manhattanLength())); });
-						
+			/*	if( synth.candidates.size() > 0)
+				{
+				  synth.explained = true;
+				  synth.intersectArea = 
+				}
+			*/			
 				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
 				for(auto c: synth.candidates)
 					qDebug() << "candidates" << c.first << c.second;
 				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
-			
 			}
+			//Go through candidates to select final ones
+			
+			//Create delete and create lists
+			
+			
 			setState(States::Stress);
 			break;
 			
+// 		case States::Compare:
+// 			for(auto &yolo: listYoloObjects)
+// 			{
+// 				qDebug() << "Compare: analyzing from yoloObjects" << yolo.name << QString::fromStdString(yolo.type);
+// 				for(auto &synth: listObjects)  
+// 				{
+// 					qDebug() << "	analyzing from Objects" << QString::fromStdString(synth.type);
+// 					synth.intersectArea = 0;
+// 					synth.explained = false;
+// 					synth.candidates.clear();
+// 				
+// 					QRect r(QPoint(yolo.box.x,yolo.box.y),QPoint(yolo.box.w,yolo.box.h));
+// 					if( synth.type == yolo.type)
+// 					{
+// 						//compute intersection percentage between synthetic and real
+// 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
+// 						QRect i = rs.intersected(r);
+// 						float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+// 						QPoint error = r.center() - rs.center();
+// 						qDebug() << "		area" << area <<"dist" << error.manhattanLength() << "dist THRESHOLD" << rs.width();
+// 						if(area > 0 and error.manhattanLength()< rs.width()*2)
+// 						{
+// 							explaincandidates.push_back(std::make_pair(area, error));
+// 							qDebug() << "		" << yolo.name << " is aexplain candidate for" << synth.name;
+// 						}
+// 					}
+// 				}
+// 				
+// 				//sort candidates by intersection area first and center distances if equal areas
+// 				std::sort(synth.candidates.begin(), synth.candidates.end(), [](auto a, auto b)
+// 				{ return (a.first > b.first) or ((a.first==b.first) and (a.second.manhattanLength() < b.second.manhattanLength())); });
+// 			/*	if( synth.candidates.size() > 0)
+// 				{
+// 				  synth.explained = true;
+// 				  synth.intersectArea = 
+// 				}
+// 			*/			
+// 				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
+// 				for(auto c: synth.candidates)
+// 					qDebug() << "candidates" << c.first << c.second;
+// 				qDebug() << "<<<<<<<<<<<<<<<<<<<<<<<<<";
+// 			
+// 			}
+// 			setState(States::Stress);
+// 			break;
+// 			
+			
 		// correct the stressful situation
 		case States::Stress:
+			qDebug() << "Stress: size of listObjects" << listObjects.size();
 			for(auto &synth: listObjects)
 			{
-				qDebug() << "Stress: area" << synth.intersectArea << "explained" << synth.explained << "error" << synth.error;
-				if(synth.explained)	// local corrections
+				if(synth.candidates.size() > 0)	// local corrections
 				{
+					QPoint error = synth.candidates.front().second;
+	  				qDebug() << "	correcting" << synth.name  << "error" << error;
 					InnerModelTransform *t = innermodel->getTransform(synth.name);
-					innermodel->updateTranslationValues(synth.name, t->getTr().x() + synth.error.y(), t->getTr().y(), t->getTr().z() + synth.error.x());
+					innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
 				}
 				else 	// delete unexplained objects
 				{
-					
+					qDebug() << "	unexplained" << synth.name << synth.intersectArea << "explained" << synth.explained << "error" << synth.error;				
 				}
 			}
-			for(auto &n: newCandidates)
-			{
-				if(n.type != "cup")  //Only cups for now
-					continue;
-				qDebug() << "Stress: new objects " << QString::fromStdString(n.type);
-				QVec ot = innermodel->transform("countertopA", n.pose, "rgbd" );
-				// create a new unused name
-				QString name = QString::fromStdString(n.type);
-				TObject to;
-				to.type = "cup";
-				TObjects::iterator maxIdx =  std::max_element(listObjects.begin(), listObjects.end(), [](TObject a, TObject b){ return a.idx > b.idx;});
-				to.idx = maxIdx->idx + 1;
-				to.name = "cup_" + QString::number(to.idx);
-				to.explained = false;
-				qDebug() << "Inserto" << to.name;
-				try{InnerModelTransform *obj = innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);}
-				catch(QString s){ qDebug() << s;}
-				to.bb.push_back(QVec::vec3(50,0,50));
-				to.bb.push_back(QVec::vec3(-50,0,50));
-				to.bb.push_back(QVec::vec3(50,0,-50));
-				to.bb.push_back(QVec::vec3(-50,-0,-50));
-				to.bb.push_back(QVec::vec3(50,100,50));
-				to.bb.push_back(QVec::vec3(-50,100,50));
-				to.bb.push_back(QVec::vec3(50,100,-50));
-				to.bb.push_back(QVec::vec3(-50,100,-50));
-				listObjects.push_back(to);
-			}
+			
+			qDebug() << "Stress: size of newCandidates" << newCandidates.size();
+			if(listObjects.size() < MAX_OBJECTS)
+			  for(auto &n: newCandidates)
+			  {
+				  if(n.type != "cup")  //Only cups for now
+					  continue;
+				  qDebug() << "	new object candidate: " << QString::fromStdString(n.type);
+				  QVec ot = innermodel->transform("countertopA", n.pose, "rgbd" );
+				  // create a new unused name
+				  QString name = QString::fromStdString(n.type);
+				  TObject to;
+				  to.type = "cup";
+				  //TObjects::iterator maxIdx =  std::max_element(listObjects.begin(), listObjects.end(), [](TObject a, TObject b){ return a.idx > b.idx;});
+				  to.idx = listObjects.size();
+				  to.name = "cup_" + QString::number(to.idx);
+				  to.explained = false;
+				  to.prob = 100;
+				  qDebug() << "	new name" << to.name << "at" << ot.x() << ot.y() << ot.z();
+				  try{InnerModelTransform *obj = innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);}
+				  catch(QString s){ qDebug() << s;}
+				  to.bb.push_back(QVec::vec3(50,0,50));
+				  to.bb.push_back(QVec::vec3(-50,0,50));
+				  to.bb.push_back(QVec::vec3(50,0,-50));
+				  to.bb.push_back(QVec::vec3(-50,-0,-50));
+				  to.bb.push_back(QVec::vec3(50,100,50));
+				  to.bb.push_back(QVec::vec3(-50,100,50));
+				  to.bb.push_back(QVec::vec3(50,100,-50));
+				  to.bb.push_back(QVec::vec3(-50,100,-50));
+				  listObjects.push_back(to);
+			  }
 			setState(States::Predict);
 			break;
 	}
@@ -475,31 +547,27 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
 	
 	//ÑAPA
 	
-	for(auto box: yoloLabelsBack.lBox)
+	for(auto yolo: listYoloObjects)  
 	{
-		if( box.prob > 35)
+		if( yolo.prob > 35)
 		{
 			CvPoint p1, p2, pt;
-			p1.x = int(box.x); p1.y = int(box.y);
-			p2.x = int(box.w); p2.y = int(box.h);
-			pt.x = int(box.x); pt.y = int(box.y) + ((p2.y - p1.y) / 2);
+			p1.x = int(yolo.box.x); p1.y = int(yolo.box.y);
+			p2.x = int(yolo.box.w); p2.y = int(yolo.box.h);
+			pt.x = int(yolo.box.x); pt.y = int(yolo.box.y) + ((p2.y - p1.y) / 2);
 			cv::rectangle(dest, p1, p2, cv::Scalar(0, 0, 255), 4);
 			auto font = cv::FONT_HERSHEY_SIMPLEX;
-			cv::putText(dest, box.label + " " + std::to_string(int(box.prob)) + "%", pt, font, 1, cv::Scalar(255, 255, 255), 1);
+			cv::putText(dest, yolo.type + " " + std::to_string(int(yolo.prob)) + "%", pt, font, 1, cv::Scalar(255, 255, 255), 1);
 		}
 	}
 	for(auto o: listObjects)
 	{
-		if( o.box.prob > 35)
-		{
-			CvPoint p1, p2;
-			p1.x = int(o.box.x); p1.y = int(o.box.y);
-			p2.x = int(o.box.w); p2.y = int(o.box.h);
-			cv::rectangle(dest, p1, p2, cv::Scalar(0, 255, 5), 4);
-		}
+		CvPoint p1, p2;
+		p1.x = int(o.box.x); p1.y = int(o.box.y);
+		p2.x = int(o.box.w); p2.y = int(o.box.h);
+		cv::rectangle(dest, p1, p2, cv::Scalar(0, 255, 5), 4);
 	}
 
-	
 	QImage image((uchar*)dest.data, dest.cols, dest.rows,QImage::Format_RGB888);
 	item_pixmap->setPixmap(QPixmap::fromImage(image));
 	scene.update();
