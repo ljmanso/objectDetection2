@@ -189,6 +189,7 @@ void SpecificWorker::compute()
 		
 		// project objects on camera creating yoloSLabels
 		case States::Predict:
+			//For each synthetic object it is projected on the camera to create the labels
 			for(auto &o: listObjects)
 			{
 				qDebug() << "Predict" << o.name;
@@ -198,24 +199,30 @@ void SpecificWorker::compute()
 				for(auto &b: o.bb)
 				{
 					QVec res = c->project(innermodel->transform("rgbd", b, o.name));
-					bbInCam.push_back(res);
+					bbInCam.push_back(res); //The transformed coordinates are added
 				}
 				
-				// should check if pixel coordinates are inside image >0 and < 640		
+				// Control between 0 and 640 res
+				
 				// compute a bounding box of pixel coordinates
+				//Sort the coordinates x
 				auto xExtremes = std::minmax_element(bbInCam.begin(), bbInCam.end(),
                                      [](const QVec& lhs, const QVec& rhs) { return lhs.x() < rhs.x();});
+				//Sort the coordinates y
 				auto yExtremes = std::minmax_element(bbInCam.begin(), bbInCam.end(),
                                      [](const QVec& lhs, const QVec& rhs) { return lhs.y() < rhs.y();});
+				//Take the most separated ends to build the rectangle
 				o.box.x = xExtremes.first->x(); o.box.y = yExtremes.first->y(); o.box.w = xExtremes.second->x(); o.box.h = yExtremes.second->y() ;
 				o.box.label = o.name.toStdString();
 				o.box.prob = 100;
 				setState(States::YoloInit);
 			}
-			
+		
+		// Access to yolo is divided into two states so that it has time to process and send the result
 		case States::YoloInit:
 			try
 			{
+				//Store the id of the request to yolo
 				yoloId = yoloserver_proxy->addImage(yoloImage);
 				//reloj.restart();
 				setState(States::YoloWait);
@@ -226,11 +233,13 @@ void SpecificWorker::compute()
 		case States::YoloWait:
 			try
 			{
+				//Get the result of the previous request
 				yoloLabels = yoloserver_proxy->getData(yoloId);
 				if( yoloLabels.isReady )
 				{
 					//yoloLabelsBack = yoloLabels;
 					listYoloObjects.clear();
+					//A real object is created for each label and added to the list of yolo objects
 					for(auto y: yoloLabels.lBox)
 					{
 					  TObject o;
@@ -251,6 +260,8 @@ void SpecificWorker::compute()
 			// check if the predicted labels are on sight				
 			setState(States::Predict);
 			listCreate.clear();
+			listDelete.clear();
+			//For each synthetic object
 			for(auto &synth: listObjects)
 			{
 				qDebug() << "Compare: analyzing from listObjects" << synth.name << QString::fromStdString(synth.type);
@@ -258,29 +269,41 @@ void SpecificWorker::compute()
 				synth.explained = false;
 				synth.candidates.clear();
 				std::vector<TCandidate> listCandidates;
+				//It is compared with real objects
 				for(auto &yolo: listYoloObjects)  
 				{
-					if( synth.type == yolo.type)
+					//If it is the same type and has not been assigned yet
+					if( synth.type == yolo.type and yolo.assigned == false)
 					{
 						qDebug() << "	analyzing from yoloObject:" << QString::fromStdString(yolo.type);
+						//A rectangle with the real object is created
 						QRect r(QPoint(yolo.box.x,yolo.box.y),QPoint(yolo.box.w,yolo.box.h));
-						//compute intersection percentage between synthetic and real
+						//A rectangle with the sythetic object is created
 						QRect rs(QPoint(synth.box.x,synth.box.y),QPoint(synth.box.w,synth.box.h));
+						//Compute intersection percentage between synthetic and real
 						QRect i = rs.intersected(r);
+						//The area is normalized between 0 and 1 dividing by the minimum between both areas of each object
 						float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+						//The displacement vector between the two images is calculated
 						QPoint error = r.center() - rs.center();
 						qDebug() << "		area" << area <<"dist" << error.manhattanLength() << "dist THRESHOLD" << rs.width();
-						
+						// If the area is 0 there is no intersection
+						// If the error is less than twice the width of the synthetic rectangle
 						if(area > 0 or error.manhattanLength()< rs.width()*2)
 						{
+						  //A candidate is created and added to the list of candidates in an orderly manner according to the area and the error
+						  //The object will be placed earlier in the list the less difference there is with the original
 						  TCandidate tc = {area,error,&yolo};
 						  listCandidates.insert(std::upper_bound( listCandidates.begin(), listCandidates.end(),tc,
  													[](auto a, auto b) { return (a.area > b.area) or ((a.area==b.area) and (a.error.manhattanLength() < b.error.manhattanLength()));}), 
- 													tc);							  
+ 													tc);
+
 						  qDebug() << "		explain candidate for" << synth.name;
 						}
 					}
 				}
+				
+				// If there are candidates, the first one is taken, assigned and the synthetic object is marked as explained
 				if(listCandidates.empty() == false)
 				{
 				  listCandidates.front().yolo->assigned = true;
@@ -290,12 +313,12 @@ void SpecificWorker::compute()
 				}
 			}
 			
-			//DeleteList: Extract objects not explained by measurements
+			//listDelete: Extract objects not explained by measurements
 			for(auto &o : listObjects)
 			  if(o.explained == false)
 				listDelete.push_back(o);
 			
-			//CreateList: objects to be created due to measurements not assigned to objects
+			//listCreate: objects to be created due to measurements not assigned to objects
 			for(auto &y: listYoloObjects)
 			  if(y.assigned == false)
 			  {
@@ -315,36 +338,47 @@ void SpecificWorker::compute()
 		// correct the stressful situation
 		case States::Stress:
 			//qDebug() << "Stress: size of listObjects" << listObjects.size();
+			//The position of the object is corrected
 			for(auto &synth: listObjects)
-			{
+			{	
+				//if the synthetic object is explained, only its position in the innermodel is updated
 				if(synth.explained)
 				{
 				  QPoint error = synth.error;
 				  qDebug() << "	correcting" << synth.name  << "error" << error;
 				  InnerModelTransform *t = innermodel->getTransform(synth.name);
+				  // we assume that the cup does not vary in Y because it is on the table !!!
 				  innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
 				}
 			}
 			
 			qDebug() << "Stress: size of newCandidates" << listCreate.size();
+			//New objects are added
 			if(listObjects.size() < MAX_OBJECTS)
 			  for(auto &n: listCreate)
 			  {
 				  if(n.type != "cup")  //Only cups for now
 					  continue;
 				  qDebug() << "	new object candidate: " << QString::fromStdString(n.type);
+				  //countertopA is the table
 				  QVec ot = innermodel->transform("countertopA", n.pose, "rgbd" );
 				  // create a new unused name
 				  QString name = QString::fromStdString(n.type);
+				  //New object is created
 				  TObject to;
 				  to.type = "cup";
 				  //TObjects::iterator maxIdx =  std::max_element(listObjects.begin(), listObjects.end(), [](TObject a, TObject b){ return a.idx > b.idx;});
-				  to.idx = listObjects.size();
+// 				  No puede ser porque se repiten los identificadores
+// 				  to.idx = listObjects.size();
+// 				  to.name = "cup_" + QString::number(to.idx);
+				  
+				  to.idx = std::rand();
 				  to.name = "cup_" + QString::number(to.idx);
 				  to.explained = false;
 				  to.prob = 100;
 				  qDebug() << "	new name" << to.name << "at" << ot.x() << ot.y() << ot.z();
-				  try{InnerModelTransform *obj = innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);}
+				  //It is added to the innermodel
+				  try{ /*InnerModelTransform *obj =*/innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);}
 				  catch(QString s){ qDebug() << s;}
 				  to.bb.push_back(QVec::vec3(50,0,50));
 				  to.bb.push_back(QVec::vec3(-50,0,50));
@@ -356,6 +390,25 @@ void SpecificWorker::compute()
 				  to.bb.push_back(QVec::vec3(-50,100,-50));
 				  listObjects.push_back(to);
 			  }
+			  
+			//A non-existent object is removed
+			if (listDelete.size() > 0){
+			  for(auto &n: listDelete)
+			  {
+				  if(n.type != "cup")  //Only cups for now
+					  continue;
+				  qDebug() << "	delete object " << QString::fromStdString(n.type);
+				  //It is removed from the innermodel
+				  try{innermodel->removeNode(QString::fromStdString(n.type));}
+				  catch(QString s){ qDebug() << s;}
+				  //It is removed from the list of synthetic objects
+				  for(uint i = 0; i<listObjects.size(); i++){
+					if(n.name == listObjects[i].name)
+					  listObjects.erase(listObjects.begin()+i);
+				  }
+			  }
+			}
+			  
 			setState(States::Predict);
 			break;
 	}
@@ -1325,3 +1378,4 @@ void SpecificWorker::newAprilTag(const tagsList &tags)
 // 						n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
 // 						newCandidates.push_back(n);
 // 					}
+

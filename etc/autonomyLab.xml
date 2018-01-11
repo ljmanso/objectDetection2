@@ -245,6 +245,12 @@
 					
 				</transform>
 				
+				<transform id="taza_1" tx="0" ty="5" tz="1000" ry="1.5707963267948966">
+					<axes id="axestaza_1" length="80" width="20" />
+					<mesh id="taza_mesh_1" file="/home/robocomp/robocomp/files/osgModels/mobiliario/taza.osg"  tx="0" ty="0" tz="0" rx="1.57079632679" rz="-1.57079632679" scale="120"/>
+					
+				</transform>
+				
 			</transform>
 			<!-- lateral mesa F -->
 			<transform id="1pared3" tx="314.52948" tz="-1690" ty="445" ry="0.025" >
