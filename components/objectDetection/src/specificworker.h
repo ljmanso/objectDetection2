@@ -82,9 +82,9 @@
 //typedef pcl::PointXYZRGB PointT;
 
 //using namespace computepointcloud;
+#include <cmath>
 
-
-enum class States { Training, Attention, Pipeline, YoloInit, YoloWait, Predict, Compare, Stress };
+enum class States { Training, Attention, Pipeline, YoloInit, YoloWait, Predict, Compare, Stress, Moving };
 
 class SpecificWorker : public GenericWorker
 {
@@ -153,7 +153,6 @@ class SpecificWorker : public GenericWorker
 #endif
 	//pcl::PointCloud< PointT >::Ptr copy_scene;
 
-
 Q_OBJECT
 public:
 	SpecificWorker(MapPrx& mprx);
@@ -216,10 +215,25 @@ private:
 	// State machine
 	States state;
 	void setState(States state);
+	void predict();
+	void yoloInit();
+	void yoloWait();
+	void compare(RoboCompRGBD::PointSeq pointMatrix);
+	void stress();
+	
+	int m= 0;
+	
+	int yoloId; //Yolo server id
+	float yawPosition;
 	
 	bool imageChanges();
 	bool matIsEqual(const cv::Mat Mat1, const cv::Mat Mat2);
 	bool pointCloudIsEqual();
+	
+	int ids[10]; // Auxiliary array for cups ID
+	int getId(); // Return the first free id
+	void checkTime(); // Check time to change head position
+	void setDefaultHeadPosition(); // Initial head position 
 	
 	//Yolo
 	RoboCompYoloServer::Image yoloImage;
@@ -239,6 +253,8 @@ private:
 		QVec pose;
 		bool assigned;
 		float prob;
+		QElapsedTimer time;
+		//QTime time;
 		RoboCompYoloServer::Box box;
 		std::vector<std::pair<float, QPoint>> candidates;
 		TObject() 
@@ -266,8 +282,10 @@ private:
 	TObjects listCreate;
 	TObjects listDelete;
 	TObjectsPtr listUpdate;
-	//TObjects candidates;
+	TObjects listVisible;
 	
+	float calculateYawPosition(TObject i); // Calculate side angle
+	float calculatePitchPosition(TObject i); // Calculate up and down angle
 	
 	//Synthetic yolo
 	RoboCompYoloServer::Labels yoloSLabels;
