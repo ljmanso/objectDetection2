@@ -84,7 +84,7 @@
 //using namespace computepointcloud;
 #include <cmath>
 
-enum class States { Training, Attention, Pipeline, YoloInit, YoloWait, Predict, Compare, Stress, Moving };
+enum class States { YoloInit, YoloWait, Predict, Compare, Stress, Moving };
 
 class SpecificWorker : public GenericWorker
 {
@@ -221,19 +221,20 @@ private:
 	void compare(RoboCompRGBD::PointSeq pointMatrix);
 	void stress();
 	
-	int m= 0;
-	
 	int yoloId; //Yolo server id
 	float yawPosition;
 	
 	bool imageChanges();
 	bool matIsEqual(const cv::Mat Mat1, const cv::Mat Mat2);
-	bool pointCloudIsEqual();
 	
 	int ids[10]; // Auxiliary array for cups ID
 	int getId(); // Return the first free id
 	void checkTime(); // Check time to change head position
 	void setDefaultHeadPosition(); // Initial head position 
+	bool moved;
+	//Error to adjust camera
+	float yawError;
+	float pitchError;
 	
 	//Yolo
 	RoboCompYoloServer::Image yoloImage;
@@ -283,10 +284,7 @@ private:
 	TObjects listDelete;
 	TObjectsPtr listUpdate;
 	TObjects listVisible;
-	
-	float calculateYawPosition(TObject i); // Calculate side angle
-	float calculatePitchPosition(TObject i); // Calculate up and down angle
-	
+
 	//Synthetic yolo
 	RoboCompYoloServer::Labels yoloSLabels;
 };
