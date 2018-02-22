@@ -83,6 +83,8 @@
 
 //using namespace computepointcloud;
 #include <cmath>
+#include <cstdlib>
+#include <ctime>
 
 enum class States { YoloInit, YoloWait, Predict, Compare, Stress, Moving };
 
@@ -90,68 +92,28 @@ class SpecificWorker : public GenericWorker
 {
 	string image_path;
 	float tx, ty, tz, rx, ry, rz;
-	bool test;
 	QString id_robot, id_camera,id_camera_transform;
-//	string descriptors_extension, pathLoadDescriptors, type_fitting;
-	InnerModel *innermodel;
-	StringVector lObjectsTofind;
 
-	//for poses calculation respect to the canonical one
-	InnerModel *poses_inner;
+	InnerModel *innermodel;
+
+	//For poses calculation respect to the canonical one
 	tagsList tags;
 	QMutex april_mutex;
-	QMutex matcher_mutex;
-	int num_pose;
 	int num_scene;
-
-//	pcl::PCDWriter writer;
-
-	//Cloud of the current points for pcl
-// 	pcl::PointCloud<PointT>::Ptr cloud;
-// 	pcl::PointIndices::Ptr ransac_inliers;
-// 	pcl::PointCloud<PointT>::Ptr projected_plane;
-// 	pcl::PointCloud<PointT>::Ptr cloud_hull;
-// 	pcl::PointIndices::Ptr prism_indices;
 
 	//Image of the current view for opencv
 	cv::Mat rgb_image;
-// 	cv::Mat color_segmented;
-// 	RTMat viewpoint_transform;
-	
-	cv::Mat last_rgb_image; //Last image
-	//pcl::PointCloud<PointT>::Ptr last_cloud; //Last cloud
 
 	//Point cloud grabing
 	RoboCompRGBD::ColorSeq rgbMatrix;
-	//RoboCompRGBD::depthType distanceMatrix;
-	//RoboCompRGBD::PointSeq points_kinect;
 	RoboCompJointMotor::MotorStateMap h;
 	RoboCompGenericBase::TBaseState b;
-
-	//color Segmentator
-	//Segmentator segmentator;
-
-	//euclidean clustering
-	//std::vector<pcl::PointIndices> cluster_indices;
-	//std::vector<pcl::PointCloud<PointT>::Ptr> cluster_clouds;
-
-	//VFH
-	//boost::shared_ptr<DESCRIPTORS> descriptor_matcher;
-	//std::vector<DESCRIPTORS::file_dist_t> descriptor_guesses;
-	//boost::shared_ptr<Table> table;
+	RoboCompRGBD::PointSeq pointMatrix;
 
 #ifdef USE_QTGUI
 	QGraphicsPixmapItem* item_pixmap;
-// 	vector<QGraphicsTextItem*> V_text_item;
-	vector<QGraphicsPixmapItem*> V_pixmap_item;
-
 	QGraphicsScene scene;
-
-	//boost::shared_ptr<Viewer> viewer;
-	//QVec guess;
-
 #endif
-	//pcl::PointCloud< PointT >::Ptr copy_scene;
 
 Q_OBJECT
 public:
@@ -161,90 +123,51 @@ public:
 	bool setParams(RoboCompCommonBehavior::ParameterList params);
 
 	//// SERVANT for ObjectDetection.ice
-	bool findObjects(const StringVector &objectsTofind, ObjectVector &objects){return false;};
-	// Thread worker for findobjects
-	//static void computeObjectScene(pcl::PointCloud<PointT>::Ptr obj_scene, ObjectType *Obj, SpecificWorker *s);
-	
-/*
- * Method of Interface AprilTags.ice
- */
+	bool findObjects(const StringVector &objectsTofind, ObjectVector &objects){return false;};	
+
+	//Method of Interface AprilTags.ice
 	void newAprilTagAndPose(const tagsList &tags, const RoboCompGenericBase::TBaseState &bState, const RoboCompJointMotor::MotorStateMap &hState);
 	void newAprilTag(const tagsList &tags);
 
 public slots:
 	void compute();
-#ifdef USE_QTGUI
-	//void saveView_Button();
-	//void findTheObject_Button();
-	//void reloadDESCRIPTORS_Button();
-	//void fullRun_Button();
-	//void ResetPose_Button();
-#endif
 
 private:
 #ifdef USE_QTGUI
- 	//void initSaveObject(const string &label, const int numPoseToSave);
- 	//QVec saveRegPose(const string &label, const int numPoseToSave);
 	void updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const RoboCompJointMotor::MotorStateMap &h, const RoboCompGenericBase::TBaseState &b);
- 	//QGraphicsItem *settexttocloud(string name, float minx, float maxx, float miny, float maxy, float minz, float maxz);
- 	//void paintcloud(pcl::PointCloud<PointT>::Ptr cloud);
-	//oid removeAllpixmap();
 #endif
 	
 private:
-	 	void updateinner();
-
-//  	QVec extraerposefromTM(QMat M);
-//  	void grabThePointCloud();
-//  	void readThePointCloud(const string &image, const string &pcd);
-//  	void ransac();
-//  	void projectInliers();
-//  	void convexHull();
-//  	void extractPolygon();
-//  	void euclideanClustering(int &numCluseters);
-//  	void capturePointCloudObjects();
-//  	void loadTrainedDESCRIPTORS();
-//  	void descriptors(StringVector &guesses);
-//  	bool aprilSeen(QVec &offset);
-// 		void reloadDESCRIPTORS(){};
-//  	void getPose(ObjectType &Obj, string file_view_mathing, 	pcl::PointCloud<PointT>::Ptr obj_scene);
-// 	void segmentImage();
-// 	void passThrough();
-// 	void statisticalOutliersRemoval();
-
 	// State machine
 	States state;
 	void setState(States state);
-	void predict();
-	void yoloInit();
-	void yoloWait();
-	void compare(RoboCompRGBD::PointSeq pointMatrix);
-	void stress();
+	void predict(); 									// Project objects on camera creating yoloSLabels
+	void yoloInit();									// Access to yolo is divided into two states so that it has time to process and send the result
+	void yoloWait();									// Wait for yolo server
+	void compare(RoboCompRGBD::PointSeq pointMatrix);	// Compare real and synthetic objects
+	void stress();										// Correct a stressful situation
 	
-	int yoloId; //Yolo server id
-	float yawPosition;
-	
-	bool imageChanges();
-	bool matIsEqual(const cv::Mat Mat1, const cv::Mat Mat2);
-	
-	int ids[10]; // Auxiliary array for cups ID
-	int getId(); // Return the first free id
-	void checkTime(); // Check time to change head position
-	void setDefaultHeadPosition(); // Initial head position 
-	bool moved;
-	//Error to adjust camera
-	float yawError;
-	float pitchError;
+	int yoloId; 		// Yolo server id
+	float yawPosition; 	// Engine yaw position
+	int ids[10]; 		// Auxiliary array for cups ID (only allows 10 objects)
+	bool moved; 		// If you're moving because the previous object, you mustn't move in the same check by other object
+
+	void setDefaultHeadPosition(); 	// Initial head position 
+	void getRgbd();					// Gets camera information
+	void updateinner();				// Update motor state
+	void getYawMotorState();		// Check if yaw motor is moving
+	void checkTime(); 				// Check time to change head position
+	int getId(); 					// Return the first free id
 	
 	//Yolo
 	RoboCompYoloServer::Image yoloImage;
-	RoboCompYoloServer::Labels yoloLabels, yoloLabelsBack;
+	RoboCompYoloServer::Labels yoloLabels;
 	
 	//Objects geometry
 	struct TObject
 	{
 		QString name;			//instance
-		std::string type;			//class
+		std::string type;		//class
 		bool explained;		
 		int idx;
 		std::vector<QVec> bb;	//bounding box
@@ -255,7 +178,6 @@ private:
 		bool assigned;
 		float prob;
 		QElapsedTimer time;
-		//QTime time;
 		RoboCompYoloServer::Box box;
 		std::vector<std::pair<float, QPoint>> candidates;
 		TObject() 
@@ -276,17 +198,12 @@ private:
 	};
 	
 	typedef std::vector<TObject> TObjects;
-	typedef std::vector<TObject*> TObjectsPtr;
-	
+
 	TObjects listObjects;
 	TObjects listYoloObjects;
 	TObjects listCreate;
 	TObjects listDelete;
-	TObjectsPtr listUpdate;
 	TObjects listVisible;
-
-	//Synthetic yolo
-	RoboCompYoloServer::Labels yoloSLabels;
 };
 
 #endif
