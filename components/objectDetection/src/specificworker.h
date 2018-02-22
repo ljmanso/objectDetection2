@@ -26,20 +26,9 @@
 #define SPECIFICWORKER_H
 
 #ifndef Q_MOC_RUN
-//  #include <pcl/point_cloud.h>
-//  #include <pcl/pcl_base.h>
-//  #include <pcl/point_types.h>
-//  #include <pcl/filters/passthrough.h>
-//  #include <pcl/segmentation/extract_clusters.h>
-//  #include <pcl/filters/statistical_outlier_removal.h>
-//  #include <pcl/conversions.h>
-//  #include <pcl/point_types_conversion.h>
  #include <opencv2/core/core.hpp>
  #include <opencv2/highgui/highgui.hpp>
  #include <opencv2/imgproc/imgproc.hpp>
- //#include <pcl/surface/convex_hull.h>
- //#include <pcl/surface/concave_hull.h>
- //#include <boost/thread/thread.hpp>
 #endif
 
 #include <genericworker.h>
@@ -47,23 +36,8 @@
 #ifndef Q_MOC_RUN
 	#include <innermodel/innermodel.h>
 	#include <innermodel/innermodelviewer.h>
-	//#include "color_segmentation/Segmentator.h"
-	//#include "shapes/table.h"
-	//#include "descriptors/descriptors.h"
-	#ifdef USE_QTGUI
-		//#include "viewer/viewer.h"
-		#include <QGraphicsPixmapItem>
-	#endif
-	//#include "pointcloud/pointcloud.h"
 	#include "time.h"
 #endif
-
-
-#define DEBUG 1
-#define SAVE_DATA 0
-#define THRESHOLD 0.8
-#define MEDIDA 1.
-#define offset_object 0.
 
 #define MAX_OBJECTS 5
 
@@ -79,9 +53,6 @@
     } \
   }
 
-//typedef pcl::PointXYZRGB PointT;
-
-//using namespace computepointcloud;
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
