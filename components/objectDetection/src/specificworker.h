@@ -39,8 +39,6 @@
 	#include "time.h"
 #endif
 
-#define MAX_OBJECTS 5
-
 #define SUB(dst, src1, src2) \
   { \
     if ((src2)->tv_nsec > (src1)->tv_nsec) { \
@@ -53,9 +51,17 @@
     } \
   }
 
+#define MAX_OBJECTS 5
+#define CELL_WIDTH 20
+#define CELL_HEIGHT 10
+
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+
+#include <boost/functional/hash.hpp>
+#include <unordered_map>
+#include <fcl/collision_func_matrix.h>
 
 enum class States { YoloInit, YoloWait, Predict, Compare, Stress, Moving };
 
@@ -129,6 +135,7 @@ private:
 	void getYawMotorState();		// Check if yaw motor is moving
 	void checkTime(); 				// Check time to change head position
 	int getId(); 					// Return the first free id
+	void updateTableMap();			// Cold function
 	
 	//Yolo
 	RoboCompYoloServer::Image yoloImage;
@@ -175,6 +182,53 @@ private:
 	TObjects listCreate;
 	TObjects listDelete;
 	TObjects listVisible;
+	
+	// Map creation to model the table
+	struct Key
+	{
+		long int x;
+		long int z;
+	
+		public:
+			Key(): x(0), z(0) {};
+			Key(long int &&x, long int &&z): x(std::move(x)), z(std::move(z)){};
+			Key(long int &x, long int &z): x(x), z(z){};
+			Key(const long int &x, const long int &z): x(x), z(z){};
+			bool operator==(const Key &other) const
+				{ return x == other.x && z == other.z; };
+			void print(std::ostream &os) const 	{ os << " x:" << x << " z:" << z; };
+	};
+		
+	struct Value
+	{
+		float x;
+		float y;
+		float z;
+		int temperature;	// 0 cold ----> 100 hot
+	};
+
+	struct KeyHasher
+	{
+		std::size_t operator()(const Key& k) const
+		{
+			using boost::hash_value;
+			using boost::hash_combine;
+
+			// Start with a hash value of 0    .
+			std::size_t seed = 0;
+
+			// Modify 'seed' by XORing and bit-shifting in one member of 'Key' after the other:
+			hash_combine(seed,hash_value(k.x));
+			hash_combine(seed,hash_value(k.z));
+			return seed;
+		};
+	};	
+			
+	typedef	std::unordered_map<Key, Value, KeyHasher> map;
+	map tableMap;
+	
+	void thereIsAnObject(std::pair<Key, Value> cell);	// True if there is an object on this area
+
 };
 
 #endif

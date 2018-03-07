@@ -98,7 +98,42 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		
 	setDefaultHeadPosition();
 	yawPosition = 0.0;
+	
+	// Start map struct
+	auto table = innermodel->getNode<InnerModelNode>("countertopB_mesh");
+	QMat r1q = innermodel->getRotationMatrixTo("root", "countertopB");
+	fcl::Matrix3f R1(r1q(0,0), r1q(0,1), r1q(0,2), r1q(1,0), r1q(1,1), r1q(1,2), r1q(2,0), r1q(2,1), r1q(2,2));
+	QVec t1v = innermodel->getTranslationVectorTo("root", "countertopB");
+	fcl::Vec3f T1(t1v(0), t1v(1), t1v(2));
+	table->collisionObject->setTransform(R1, T1);
+	auto box = table->collisionObject->getAABB();
+	
+	//At this world:
+	// - x = width
+	// - y = height
+	// - z = depth
+	int width = box.width();
+	int height = box.height();
+	int depth = box.depth();
+	
+	qDebug() << "W:" << width << "h:"<< height<<"d:" << depth;
 
+	// Init map
+	InnerModelCamera *c = innermodel->getCamera("rgbd");
+	
+	for(int i=-depth/2; i<depth/2; i+=CELL_WIDTH)
+	{
+		for(int j=-width/2; j<width/2; j+=CELL_HEIGHT)
+		{
+			qDebug()<<"i:"<<i<<"j"<<j;
+			QVec vector = QVec::vec3(j, 0, i);
+			QVec res = c->project(innermodel->transform("rgbd", vector, "countertopA"));
+			res.print("res");
+			tableMap.emplace( Key(i,j),Value{res.x(), res.y(), res.z(), 0});
+		}
+	}
+	
+	//cin.get();
 	timer.start(50);
 	return true;
 }
@@ -245,6 +280,7 @@ void SpecificWorker::compare(RoboCompRGBD::PointSeq pointMatrix)
 	// Check if the predicted labels are on sight				
 	listCreate.clear();
 	listDelete.clear();
+	
 	//For each synthetic object
 	for(auto &synth: listVisible)
 	{
@@ -362,62 +398,64 @@ void SpecificWorker::stress()
 	
 	//New objects are added
 	if(listObjects.size() < MAX_OBJECTS)
-	  for(auto &n: listCreate)
-	  {
-		  if(n.type != "cup")  //Only cups for now
-			  continue;
-		  
-		  //countertopA is the table
-		  QVec ot = innermodel->transform("countertopA", n.pose, "rgbd");
-		  // create a new unused name
-		  QString name = QString::fromStdString(n.type);
-		  //New object is created
-		  TObject to;
-		  
-		  to.type = "cup";
-		  to.idx = getId();
-		  to.name = "taza_" + QString::number(to.idx);
-		  to.explained = false;
-		  to.prob = 100;
-		  to.time.start();
-		  
-		  //It is added to the innermodel
-		  try{innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);}
-		  catch(QString s){ qDebug() << s;}
-		  
-		  to.bb.push_back(QVec::vec3(40,0,40));
-		  to.bb.push_back(QVec::vec3(-40,0,40));
-		  to.bb.push_back(QVec::vec3(40,0,-40));
-		  to.bb.push_back(QVec::vec3(-40,-0,-40));
-		  to.bb.push_back(QVec::vec3(40,80,40));
-		  to.bb.push_back(QVec::vec3(-40,80,40));
-		  to.bb.push_back(QVec::vec3(40,80,-40));
-		  to.bb.push_back(QVec::vec3(-40,80,-40));
-		  
-		  //If the box is in the plane you can add the object to the lists
-		  InnerModelCamera *c = innermodel->getCamera("rgbd");
-		  bool valid = true;
-		  for(auto i: to.bb)
-		  {
-			  QVec res = c->project(innermodel->transform("rgbd", i, to.name));
-			  // Control between 0 and 640 res
-			  if(res.x() >= 640 or res.x() <= 0 or res.y() <= 0 or res.y() >= 480 or std::isnan(res.x()) or std::isnan(res.y()))
-			  {
-				  valid = false;
-				  ids[to.idx] = 0; //Revisar problemas con nombres. Se llena el vector al acceder a getID
-				  try{innermodel->removeNode(to.name);}
-				  catch(...){qDebug() << "Trying to remove non-existent node";}
-				  goto end; //get out the loop
-			  }
-		  }
-		  end:
-		  if(valid == true)
-		  {
-			  listObjects.push_back(to);
-			  listVisible.push_back(to); //The object is added
-		  }
-	  }
-	 
+		for(auto &n: listCreate)
+		{
+			if(n.type != "cup")  //Only cups for now
+				continue;
+			
+			//countertopA is the table
+			QVec ot = innermodel->transform("countertopA", n.pose, "rgbd");
+			// create a new unused name
+			QString name = QString::fromStdString(n.type);
+			//New object is created
+			TObject to;
+			
+			to.type = "cup";
+			to.idx = getId();
+			to.name = "taza_" + QString::number(to.idx);
+			to.explained = false;
+			to.prob = 100;
+			to.time.start();
+			
+			//It is added to the innermodel
+			try{innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);}
+			catch(QString s){ qDebug() << s;}
+			
+			to.bb.push_back(QVec::vec3(40,0,40));
+			to.bb.push_back(QVec::vec3(-40,0,40));
+			to.bb.push_back(QVec::vec3(40,0,-40));
+			to.bb.push_back(QVec::vec3(-40,-0,-40));
+			to.bb.push_back(QVec::vec3(40,80,40));
+			to.bb.push_back(QVec::vec3(-40,80,40));
+			to.bb.push_back(QVec::vec3(40,80,-40));
+			to.bb.push_back(QVec::vec3(-40,80,-40));
+			
+			//If the box is in the plane you can add the object to the lists
+			InnerModelCamera *c = innermodel->getCamera("rgbd");
+			bool valid = true;
+			for(auto i: to.bb)
+			{
+				QVec res = c->project(innermodel->transform("rgbd", i, to.name));
+				// Control between 0 and 640 res
+				if(res.x() >= 640 or res.x() <= 0 or res.y() <= 0 or res.y() >= 480 or std::isnan(res.x()) or std::isnan(res.y()))
+				{
+					valid = false;
+					ids[to.idx] = 0; //Revisar problemas con nombres. Se llena el vector al acceder a getID
+					try{innermodel->removeNode(to.name);}
+					catch(...){qDebug() << "Trying to remove non-existent node";}
+					goto end; //get out the loop
+				}
+			}
+			end:
+			if(valid == true)
+			{
+				listObjects.push_back(to);
+				listVisible.push_back(to); //The object is added
+			}
+		}
+	
+	updateTableMap();
+	
 	setState(States::Predict);
 }
 
@@ -436,10 +474,9 @@ void SpecificWorker::setState(States s)
 
 void SpecificWorker::setDefaultHeadPosition()
 {
-    
     RoboCompJointMotor::MotorGoalPosition head_pitch_joint, head_yaw_joint;
     
-    head_pitch_joint.name = "head_pitch_joint";
+	head_pitch_joint.name = "head_pitch_joint";
 	head_pitch_joint.position = 0.9;
 	
 	head_yaw_joint.name = "head_yaw_joint";
@@ -501,8 +538,13 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
 		yoloImage.data[j+2] = rgbMatrix[i].red;	
 	}
 	
-	cv::Mat dest;
-	cv::cvtColor(rgb_image, dest,CV_BGR2RGB);
+	cv::Mat dest, dest1;
+	cv::cvtColor(rgb_image, dest1, CV_BGR2YCrCb);
+	vector<cv::Mat> channels;
+	cv::split(dest1,channels);
+	cv::equalizeHist(channels[0], channels[0]);
+	cv::merge(channels,dest1);
+	cv::cvtColor(dest1,dest,CV_YCrCb2RGB);
 	
 	for(auto yolo: listYoloObjects)  
 	{
@@ -558,7 +600,7 @@ void SpecificWorker::checkTime()
 		if (i.time.elapsed() > 15000 and moved == false)
 		{
 			moved = true;
-			
+
 			for(auto &j: listObjects)
 			  	j.time.restart();
 			
@@ -568,6 +610,8 @@ void SpecificWorker::checkTime()
 			
 			head_yaw_joint.position = atan2(res.x() - center.x(), res.z());
 			head_pitch_joint.position = atan2(res.z(), center.y() - res.y());
+			
+			qDebug() << "Yaw:" << head_yaw_joint.position << "     Pitch:" << head_pitch_joint.position;
 			
 			try
 			{
@@ -593,6 +637,57 @@ int SpecificWorker::getId()
 	return -1;
 }
 
+void SpecificWorker::updateTableMap()
+{
+	auto f = std::bind(&SpecificWorker::thereIsAnObject, this, std::placeholders::_1);
+	for_each(tableMap.begin(),tableMap.end(), f);
+	
+// 	for(auto cell: tableMap)
+// 	{
+// 		if(thereIsAnObject(cell.second))
+// 		{
+// 			cell.second.temperature -= 2;
+// 			qDebug() << "temperature" << cell.second.temperature;
+// 		}
+// 		else
+// 			cell.second.temperature --;
+// 	}
+}
+
+void SpecificWorker::thereIsAnObject(std::pair<Key, Value> cell)
+{	
+	for(auto synth: listObjects)
+	{
+		// Find the projection
+		QRect objProj(0, 0, 80, 80);
+		for(auto a: synth.bb)
+		{
+			if(a.y() == 0 && a.x() < 0 && a.z() < 0)
+			{
+				QVec res = innermodel->transform(synth.name, a, "countertopA");
+				objProj.translate(res.x(), res.z());
+			}
+		}
+	}
+	  
+// // 		//A rectangle with the cell is created
+// // 		QRect r(QPoint(cell.z, cell.x),QPoint(CELL_WIDTH, CELL_HEIGHT));
+// // 		qDebug()<< "r" << r.width() << r.height();
+// // 		//A rectangle with the sythetic object is created
+// // 		QVec res = innermodel->transform("rgbd", synth.bb.at(0), synth.name);
+// // 		QRect rs(QPoint(res.x(), res.y()), QPoint(synth.box.w, synth.box.h));
+// // 		qDebug()<< "rs" << rs.width() << rs.height();
+// // 		//Compute intersection percentage between synthetic and cell
+// // 		QRect i = rs.intersected(r);
+// 		//The area is normalized between 0 and 1 dividing by the minimum between both areas of each object
+// 		float area = (float)(i.width() * i.height()) / std::min(rs.width() * rs.height(), r.width() * r.height());
+// 		// If the area is 0 there is no intersection
+// 		if(area > 0)
+// 			return true;
+// 	}
+	
+// 	return false;
+}
 
 ////////////////////////////////////////////
 /// SUBSCRIPTION for interface AprilTags

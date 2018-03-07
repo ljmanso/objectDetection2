@@ -91,6 +91,7 @@ struct tag
     ::Ice::Float rx;
     ::Ice::Float ry;
     ::Ice::Float rz;
+    ::std::string cameraId;
 
     bool operator==(const tag& __rhs) const
     {
@@ -123,6 +124,10 @@ struct tag
             return false;
         }
         if(rz != __rhs.rz)
+        {
+            return false;
+        }
+        if(cameraId != __rhs.cameraId)
         {
             return false;
         }
@@ -191,6 +196,14 @@ struct tag
         {
             return false;
         }
+        if(cameraId < __rhs.cameraId)
+        {
+            return true;
+        }
+        else if(__rhs.cameraId < cameraId)
+        {
+            return false;
+        }
         return false;
     }
 
@@ -222,8 +235,8 @@ template<>
 struct StreamableTraits< ::RoboCompAprilTags::tag>
 {
     static const StreamHelperCategory helper = StreamHelperCategoryStruct;
-    static const int minWireSize = 28;
-    static const bool fixedLength = true;
+    static const int minWireSize = 29;
+    static const bool fixedLength = false;
 };
 
 template<class S>
@@ -238,6 +251,7 @@ struct StreamWriter< ::RoboCompAprilTags::tag, S>
         __os->write(v.rx);
         __os->write(v.ry);
         __os->write(v.rz);
+        __os->write(v.cameraId);
     }
 };
 
@@ -253,6 +267,7 @@ struct StreamReader< ::RoboCompAprilTags::tag, S>
         __is->read(v.rx);
         __is->read(v.ry);
         __is->read(v.rz);
+        __is->read(v.cameraId);
     }
 };
 
