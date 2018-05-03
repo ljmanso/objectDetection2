@@ -52,8 +52,8 @@
   }
 
 #define MAX_OBJECTS 5
-#define CELL_WIDTH 20
-#define CELL_HEIGHT 10
+#define CELL_WIDTH 40
+#define CELL_HEIGHT 40
 
 #include <cmath>
 #include <cstdlib>
@@ -135,7 +135,7 @@ private:
 	void getYawMotorState();		// Check if yaw motor is moving
 	void checkTime(); 				// Check time to change head position
 	int getId(); 					// Return the first free id
-	void updateTableMap();			// Cold function
+	void updateTableMap();			// Cold and warm function
 	
 	//Yolo
 	RoboCompYoloServer::Image yoloImage;
@@ -157,7 +157,6 @@ private:
 		float prob;
 		QElapsedTimer time;
 		RoboCompYoloServer::Box box;
-		std::vector<std::pair<float, QPoint>> candidates;
 		TObject() 
 		{
 			name = "";
@@ -227,7 +226,7 @@ private:
 	typedef	std::unordered_map<Key, Value, KeyHasher> map;
 	map tableMap;
 	
-	void thereIsAnObject(std::pair<Key, Value> cell);	// True if there is an object on this area
+	void cool(std::pair<Key, Value> cell);	// Cools the map, more if there is an object over this area
 
 };
 
