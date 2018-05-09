@@ -103,10 +103,10 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 
     // Start map struct
 	#if FCL_SUPPORT==1
-		auto table = innermodel->getNode<InnerModelNode>("countertopB_mesh");
-		QMat r1q = innermodel->getRotationMatrixTo("root", "countertopB");
+		auto table = innermodel->getNode<InnerModelNode>("countertopA_mesh");
+		QMat r1q = innermodel->getRotationMatrixTo("root", "countertopA");
 		fcl::Matrix3f R1(r1q(0,0), r1q(0,1), r1q(0,2), r1q(1,0), r1q(1,1), r1q(1,2), r1q(2,0), r1q(2,1), r1q(2,2));
-		QVec t1v = innermodel->getTranslationVectorTo("root", "countertopB");
+		QVec t1v = innermodel->getTranslationVectorTo("root", "countertopA");
 		fcl::Vec3f T1(t1v(0), t1v(1), t1v(2));
 	
 		table->collisionObject->setTransform(R1, T1);
@@ -117,11 +117,9 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		// - y = height
 		// - z = depth
 		int width = box.width();
-		int height = box.height();
+		//int height = box.height();
 		int depth = box.depth();
 
-		//qDebug() << "W:" << width << "h:"<< height<<"d:" << depth;
-		//cin.get();
 		// Init map
 		InnerModelCamera *c = innermodel->getCamera("rgbd");
 
@@ -138,7 +136,6 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		}
 	#endif
 	
-// 	cin.get();
     timer.start(50);
     return true;
 }
@@ -645,46 +642,57 @@ void SpecificWorker::getYawMotorState()
     }
 }
 
+
 void SpecificWorker::checkTime()
 {
-    moved = false;
-    RoboCompJointMotor::MotorGoalPosition head_yaw_joint, head_pitch_joint;
+	long min = std::numeric_limits<int>::max();
+	Key cell;
+	for ( auto it = tableMap.begin(); it != tableMap.end(); ++it )
+	{
+		if(it->second.temperature < min)
+		{
+			cell = Key(it->first.x, it->first.z);
+			min = it->second.temperature;
+		}
+	}
+	
 
-    head_yaw_joint.name = "head_yaw_joint"; 	//side to side
-    head_pitch_joint.name = "head_pitch_joint"; //up and down
+	if(min < -200){
+		RoboCompJointMotor::MotorGoalPosition head_yaw_joint, head_pitch_joint;
 
-    for(auto &i: listObjects)
-    {
-        if (i.time.elapsed() > 15000 and moved == false)
-        {
-            moved = true;
+		head_yaw_joint.name = "head_yaw_joint"; 	//side to side
+		head_pitch_joint.name = "head_pitch_joint"; //up and down
 
-            for(auto &j: listObjects)
-                j.time.restart();
+		QVec v = QVec::vec3(cell.z, 0, cell.x);
+		QVec res = innermodel->transform("rgbd", v, "countertopA");
+		
+		//QPoint center = QPoint(170, 240);
+		
+		//head_yaw_joint.position = atan2(res.x() - center.x(), res.z());
+		//head_pitch_joint.position = atan2(res.z(), center.y() - res.y());
 
-            QVec res = innermodel->transform("rgbd", i.bb.at(0), i.name);
+		head_yaw_joint.position = atan2(res.x() , res.z());
+		head_pitch_joint.position = atan2(res.z(), res.y());
+		
+		if(head_pitch_joint.position > 1)
+			head_pitch_joint.position = 1;
+		if(head_yaw_joint.position > 1)
+			head_yaw_joint.position = 1;
+		qDebug() << "Yaw:" << head_yaw_joint.position << "     Pitch:" << head_pitch_joint.position;
 
-            QPoint center = QPoint(170, 240);
-
-            head_yaw_joint.position = atan2(res.x() - center.x(), res.z());
-            head_pitch_joint.position = atan2(res.z(), center.y() - res.y());
-
-            if(head_pitch_joint.position > 1)
-                head_pitch_joint.position = 1;
-            if(head_yaw_joint.position > 1)
-                head_yaw_joint.position = 1;
-            qDebug() << "Yaw:" << head_yaw_joint.position << "     Pitch:" << head_pitch_joint.position;
-
-            try
-            {
-                jointmotor_proxy->setPosition(head_yaw_joint);
-                jointmotor_proxy->setPosition(head_pitch_joint);
-                sleep(2); //wait for the engines
-            } catch(const Ice::Exception &e) {
-                std::cout << e <<endl;
-            }
-        }
-    }
+		if(abs(head_pitch_joint.position) > 0.15 || abs(head_yaw_joint.position) > 0.15){ 
+			try
+			{
+				jointmotor_proxy->setPosition(head_yaw_joint);
+				jointmotor_proxy->setPosition(head_pitch_joint);
+				sleep(2); //wait for the engines
+			} catch(const Ice::Exception &e) {
+				std::cout << e <<endl;
+			}
+		}
+		
+		std::for_each(tableMap.begin(),tableMap.end(), []( decltype(*tableMap.begin())& p) { p.second.temperature += 200;});
+	}
 }
 
 int SpecificWorker::getId()
@@ -703,32 +711,32 @@ int SpecificWorker::getId()
 
 void SpecificWorker::updateTableMap()
 {
-	
     auto c = std::bind(&SpecificWorker::cool, this, std::placeholders::_1);
     std::for_each(tableMap.begin(),tableMap.end(), c);
 }
 
-void SpecificWorker::cool(std::pair<Key, Value> cell)
+void SpecificWorker::cool(std::pair<const Key, Value>& cell)
 {
     for(auto synth: listObjects)
     {
         // Find the projection
         QRect objProj(synth.pose.z()-40, synth.pose.x()-40, 80, 80);
-        QRect cellRect(cell.first.z, cell.first.x, CELL_WIDTH, CELL_HEIGHT);
+		QRect cellRect(cell.first.z, cell.first.x, CELL_WIDTH, CELL_HEIGHT);
 		
         QRect i = cellRect.intersected(objProj);
         float area = (float)(i.width() * i.height());
 		// If the area is 0 there is no intersection
-        if(area > 0){
-            cell.second.temperature -= 2;
-			//qDebug() <<"Obj"<<objProj.x()<< objProj.y()<<"coor" << cell.first.z<< cell.first.x<<"area"<<area<< "temperature" << cell.second.temperature;
+        if(area > 0)
+		{
+            cell.second.temperature -= 10;
+			qDebug() <<"----------------------Obj"<<objProj.x()<< objProj.y()<<"coor" << cell.first.z<< cell.first.x<<"area"<<area<< "temperature" << cell.second.temperature;
 		}else
-            cell.second.temperature -= 1;
+            cell.second.temperature -= 3;
     }
 
     if(listObjects.empty())
-        cell.second.temperature -= 1;
-
+		cell.second.temperature -= 3;
+	
     // Warm
     InnerModelCamera *c = innermodel->getCamera("rgbd");
     QVec cellCoor = QVec::vec3(cell.first.z, 0, cell.first.x);
@@ -736,10 +744,43 @@ void SpecificWorker::cool(std::pair<Key, Value> cell)
     if(res.x() < 640 and res.x() > 0 and res.y() > 0 and res.y() < 480) { // Control between 0 and 640 res.x and control between 0 and 480 res.y
 		//qDebug()<< cellCoor.x() << cellCoor.y() << cellCoor.z();
 		//qDebug()<< res.x() << res.y() << res.z();
-        cell.second.temperature += 1;
+		if(res.x() <40 || res.x() >600)
+			cell.second.temperature += 1;
+		else if((res.x() > 40 && res.x() < 100) || (res.x() > 540 && res.x() < 600)){
+			if(res.y() <40 || res.y() >440)
+				cell.second.temperature +=1;
+			else
+				cell.second.temperature += 2;
+		}else if((res.x() < 180 && res.x() > 100) || (res.x() > 460 && res.x() < 540)){
+			if(res.y() <40 || res.y() >440)
+				cell.second.temperature +=1;
+			else if((res.y() > 40 && res.y() < 120) || (res.y() > 360 && res.y() < 440))
+				cell.second.temperature += 2;
+			else
+				cell.second.temperature +=4;
+		}else if((res.x() < 280 && res.x() > 180) || (res.x() > 360 && res.x() < 460)){
+			if(res.y() <40 || res.y() >440)
+				cell.second.temperature +=1;
+			else if((res.y() > 40 && res.y() < 120) || (res.y() > 360 && res.y() < 440))
+				cell.second.temperature += 2;
+			else if((res.y() > 120 && res.y() < 180) || (res.y() > 300 && res.y() < 360))
+				cell.second.temperature +=4;
+			else
+				cell.second.temperature += 8;
+		}else if(res.x() > 280 && res.x() < 360){
+			if(res.y() <40 || res.y() >440)
+				cell.second.temperature +=1;
+			else if((res.y() > 40 && res.y() < 120) || (res.y() > 360 && res.y() < 440))
+				cell.second.temperature += 2;
+			else if((res.y() > 120 && res.y() < 180) || (res.y() > 300 && res.y() < 360))
+				cell.second.temperature +=4;
+			else
+				cell.second.temperature += 16;
+		}
     }
 
-    qDebug() <<"temperature" << cell.second.temperature;
+    
+	
 }
 
 ////////////////////////////////////////////

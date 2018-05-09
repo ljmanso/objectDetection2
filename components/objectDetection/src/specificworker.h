@@ -58,6 +58,7 @@
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
+#include <limits>
 
 #include <boost/functional/hash.hpp>
 #include <unordered_map>
@@ -203,7 +204,7 @@ private:
 		float x;
 		float y;
 		float z;
-		int temperature;	// 0 cold ----> 100 hot
+		long temperature;	
 	};
 
 	struct KeyHasher
@@ -226,8 +227,7 @@ private:
 	typedef	std::unordered_map<Key, Value, KeyHasher> map;
 	map tableMap;
 	
-	void cool(std::pair<Key, Value> cell);	// Cools the map, more if there is an object over this area
-
+	void cool(std::pair<const Key, Value>& cell);			// Cools the map, more if there is an object over this area
 };
 
 #endif
