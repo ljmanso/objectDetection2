@@ -747,7 +747,9 @@ void SpecificWorker::checkMove()
 		
 		qDebug() << "Yaw:" << head_yaw_joint.position << "     Pitch:" << head_pitch_joint.position;
 
-		if(abs(head_pitch_joint.position) > 0.15 || abs(head_yaw_joint.position) > 0.15){ 
+		RoboCompJointMotor::MotorState mstateMap = jointmotor_proxy->getMotorState("head_yaw_joint");
+		RoboCompJointMotor::MotorState mstateMap1 = jointmotor_proxy->getMotorState("head_pitch_joint");
+		if(fabs(head_pitch_joint.position - mstateMap1.pos) > 0.15f || fabs(head_yaw_joint.position - mstateMap.pos) > 0.15f){ 
 			try
 			{
 				jointmotor_proxy->setPosition(head_yaw_joint);
@@ -764,7 +766,7 @@ void SpecificWorker::checkMove()
 
 void SpecificWorker::changeTable()
 {
-	qDebug() <<tables[processTable].id <<tables[processTable].temperature;
+	qDebug() <<"Table " << processTable <<"  Temp: "<<tables[processTable].temperature;
 	bool changed = false;
 	for(int i= 0; i< tables.size() && !changed; i++)
 	{
@@ -789,15 +791,13 @@ void SpecificWorker::changeTable()
 				head_yaw_joint.position = 1;
 			qDebug() << "Yaw:" << head_yaw_joint.position << "     Pitch:" << head_pitch_joint.position;
 
-			if(abs(head_pitch_joint.position) > 0.15 || abs(head_yaw_joint.position) > 0.15){ 
-				try
-				{
-					jointmotor_proxy->setPosition(head_yaw_joint);
-					jointmotor_proxy->setPosition(head_pitch_joint);
-					sleep(2); //wait for the engines
-				} catch(const Ice::Exception &e) {
-					std::cout << e <<endl;
-				}
+			try
+			{
+				jointmotor_proxy->setPosition(head_yaw_joint);
+				jointmotor_proxy->setPosition(head_pitch_joint);
+				sleep(2); //wait for the engines
+			} catch(const Ice::Exception &e) {
+				std::cout << e <<endl;
 			}
 		}
 		
