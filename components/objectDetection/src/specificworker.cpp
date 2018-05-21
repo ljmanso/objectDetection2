@@ -58,50 +58,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
     id_camera=QString::fromStdString(params[name+".id_camera"].value);
     id_camera_transform=QString::fromStdString(params[name+".id_camera_transform"].value);
 
-    setState(States::Predict);
-
-    for(uint a=0; a<10; a++)
-        ids[a] = 0;
-
-    TObject taza;
-    taza.name = "taza_1";
-    taza.type = "cup";
-    taza.idx = 1;
-    taza.time.start();
-    taza.explained = false;
-    taza.bb.push_back(QVec::vec3(40,0,40));
-    taza.bb.push_back(QVec::vec3(-40,0,40));
-    taza.bb.push_back(QVec::vec3(40,0,-40));
-    taza.bb.push_back(QVec::vec3(-40,-0,-40));
-    taza.bb.push_back(QVec::vec3(40,80,40));
-    taza.bb.push_back(QVec::vec3(-40,80,40));
-    taza.bb.push_back(QVec::vec3(40,80,-40));
-    taza.bb.push_back(QVec::vec3(-40,80,-40));
-	taza.pose = innermodel->getTranslationVectorTo(taza.name, "countertopA");
-    listObjects.push_back(taza);
-
-    TObject taza1;
-    taza1.bb.clear();
-    taza1.name = "taza_2";
-    taza1.type = "cup";
-    taza1.idx = 2;
-    taza1.time.start();
-    taza1.explained = false;
-    taza1.bb.push_back(QVec::vec3(40,0,40));
-    taza1.bb.push_back(QVec::vec3(-40,0,40));
-    taza1.bb.push_back(QVec::vec3(40,0,-40));
-    taza1.bb.push_back(QVec::vec3(-40,-0,-40));
-    taza1.bb.push_back(QVec::vec3(40,80,40));
-    taza1.bb.push_back(QVec::vec3(-40,80,40));
-    taza1.bb.push_back(QVec::vec3(40,80,-40));
-    taza1.bb.push_back(QVec::vec3(-40,80,-40));
-	taza1.pose = innermodel->getTranslationVectorTo(taza1.name, "countertopA");
-    listObjects.push_back(taza1);
-
-    setDefaultHeadPosition();
-    yawPosition = 0.0;
-
-    // Start map struct
+	// Start map struct
 	#if FCL_SUPPORT==1
 		auto table = innermodel->getNode<InnerModelNode>("countertopA_mesh");
 		QMat r1q = innermodel->getRotationMatrixTo("root", "countertopA");
@@ -120,6 +77,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		//int height = box.height();
 		int depth = box.depth();
 
+		Table t;
 		// Init map
 		InnerModelCamera *c = innermodel->getCamera("rgbd");
 
@@ -127,15 +85,121 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		{
 			for(int j=-width/2; j<width/2; j+=CELL_HEIGHT)
 			{
-				//qDebug()<<"i:"<<i<<"j"<<j;
 				QVec vector = QVec::vec3(j, 0, i);
 				QVec res = c->project(innermodel->transform("rgbd", vector, "countertopA"));
-				res.print("res");
-				tableMap.emplace(Key(i,j),Value {res.x(), res.y(), res.z(), 0});
+				t.tableMap.emplace(Key(i,j),Value {res.x(), res.y(), res.z(), 0});
 			}
 		}
-	#endif
+		
+		t.id = 0;
+		t.pose = t1v;
+		t.temperature = 0;
+		t.name = "countertopA";
+		tables.push_back(t);
+
+		auto table2 = innermodel->getNode<InnerModelNode>("countertopB_mesh");
+		QMat r2q = innermodel->getRotationMatrixTo("root", "countertopB");
+		fcl::Matrix3f R2(r2q(0,0), r2q(0,1), r2q(0,2), r2q(1,0), r2q(1,1), r2q(1,2), r2q(2,0), r2q(2,1), r2q(2,2));
+		QVec t2v = innermodel->getTranslationVectorTo("root", "countertopB");
+		t2v.print("t2v");
+		fcl::Vec3f T2(t2v(0), t2v(1), t2v(2));
 	
+		table->collisionObject->setTransform(R2, T2);
+		auto box2 = table->collisionObject->getAABB();
+		
+		//At this world:
+		// - x = width
+		// - y = height
+		// - z = depth
+		int width2 = box2.width();
+		//int height = box.height();
+		int depth2 = box2.depth();
+
+		// Init map
+		InnerModelCamera *c2 = innermodel->getCamera("rgbd");
+		for(int i=-depth2/2; i<depth2/2; i+=CELL_WIDTH)
+		{
+			for(int j=-width2/2; j<width2/2; j+=CELL_HEIGHT)
+			{
+				QVec vector2 = QVec::vec3(j, 0, i);
+				QVec res2 = c->project(innermodel->transform("rgbd", vector2, "countertopB"));
+				t.tableMap.emplace(Key(i,j),Value {res2.x(), res2.y(), res2.z(), 0});
+			}
+		}
+		
+		t.id = 1;
+		t.pose = t2v;
+		t.temperature = 0;
+		t.name = "countertopB";
+		tables.push_back(t);
+		
+		
+		for(uint a=0; a<100; a++)
+			ids[a] = 0;
+
+		TObject taza1;
+		taza1.name = "taza_0";
+		taza1.type = "cup";
+		taza1.idx = getId();
+		taza1.explained = false;
+		taza1.bb.push_back(QVec::vec3(40,0,40));
+		taza1.bb.push_back(QVec::vec3(-40,0,40));
+		taza1.bb.push_back(QVec::vec3(40,0,-40));
+		taza1.bb.push_back(QVec::vec3(-40,-0,-40));
+		taza1.bb.push_back(QVec::vec3(40,80,40));
+		taza1.bb.push_back(QVec::vec3(-40,80,40));
+		taza1.bb.push_back(QVec::vec3(40,80,-40));
+		taza1.bb.push_back(QVec::vec3(-40,80,-40));
+		taza1.pose = innermodel->getTranslationVectorTo(taza1.name, "countertopA");
+		taza1.pose.print("taza0");
+		tables[0].listObjects.push_back(taza1);
+
+		TObject taza2;
+		taza2.name = "taza_1";
+		taza2.type = "cup";
+		taza2.idx = getId();
+		taza2.explained = false;
+		taza2.bb.push_back(QVec::vec3(40,0,40));
+		taza2.bb.push_back(QVec::vec3(-40,0,40));
+		taza2.bb.push_back(QVec::vec3(40,0,-40));
+		taza2.bb.push_back(QVec::vec3(-40,-0,-40));
+		taza2.bb.push_back(QVec::vec3(40,80,40));
+		taza2.bb.push_back(QVec::vec3(-40,80,40));
+		taza2.bb.push_back(QVec::vec3(40,80,-40));
+		taza2.bb.push_back(QVec::vec3(-40,80,-40));
+		taza2.pose = innermodel->getTranslationVectorTo(taza2.name, "countertopA");
+		taza2.pose.print("taza1");
+		tables[0].listObjects.push_back(taza2);
+		
+		
+		TObject taza3;
+		taza3.name = "taza_2";
+		taza3.type = "cup";
+		taza3.idx = getId();
+		taza3.explained = false;
+		taza3.bb.push_back(QVec::vec3(40,0,40));
+		taza3.bb.push_back(QVec::vec3(-40,0,40));
+		taza3.bb.push_back(QVec::vec3(40,0,-40));
+		taza3.bb.push_back(QVec::vec3(-40,-0,-40));
+		taza3.bb.push_back(QVec::vec3(40,80,40));
+		taza3.bb.push_back(QVec::vec3(-40,80,40));
+		taza3.bb.push_back(QVec::vec3(40,80,-40));
+		taza3.bb.push_back(QVec::vec3(-40,80,-40));
+		taza3.pose = innermodel->getTranslationVectorTo(taza3.name, "countertopB");
+		taza3.pose.print("taza2");
+		tables[1].listObjects.push_back(taza3);
+		
+		
+		//Table in which this is going to start
+		processTable = 0;
+
+	#endif
+		
+    setDefaultHeadPosition();
+    yawPosition = 0.0;
+
+    
+	setState(States::Predict);
     timer.start(50);
     return true;
 }
@@ -193,14 +257,13 @@ void SpecificWorker::compute()
 
 void SpecificWorker::predict()
 {
-    listVisible.clear();
+    tables[processTable].listVisible.clear();
     //For each synthetic object it is projected on the camera to create the labels
-    for(auto &o: listObjects)
+    for(auto &o: tables[processTable].listObjects)
     {
         o.projbb.clear();
         InnerModelCamera *c = innermodel->getCamera("rgbd");
         std::vector<QVec> bbInCam;
-        ids[o.name.at(5).digitValue()] = 1;
         bool valid = true;
         for(uint i = 0; i<o.bb.size(); i++)
         {
@@ -244,8 +307,8 @@ stop:
             o.box.label = o.name.toStdString();
             o.box.prob = 100;
             o.projbb = bbInCam;
-            o.time.restart();
-            listVisible.push_back(o);
+            //o.time.restart();
+            tables[processTable].listVisible.push_back(o);
         }
     }
 
@@ -272,11 +335,19 @@ void SpecificWorker::yoloWait()
         yoloLabels = yoloserver_proxy->getData(yoloId);
         if(yoloLabels.isReady)
         {
-            listYoloObjects.clear();
+            tables[processTable].listYoloObjects.clear();
             //A real object is created for each label and added to the list of yolo objects
             for(auto y: yoloLabels.lBox)
             {
-				if(y.x>=0 && y.y>=0 && y.w>0 && y.h>0 && y.x<480 && y.y <640){
+				//If YOLO detects twice the same object
+				bool twice = false;
+				for(auto yo: tables[processTable].listYoloObjects)
+				{
+					if(abs(yo.box.x - y.x) < 30 && abs(yo.box.y - y.y) < 30)
+						twice = true;
+				}
+				
+				if(!twice && y.x>=0 && y.y>=0 && y.w>0 && y.h>0 && y.x<480 && y.y <640){
 					TObject o;
 					o.type = y.label;
 					o.box.x = y.x;
@@ -285,7 +356,7 @@ void SpecificWorker::yoloWait()
 					o.box.h = y.h;
 					o.assigned = false;
 					o.prob = y.prob;
-					listYoloObjects.push_back(o);
+					tables[processTable].listYoloObjects.push_back(o);
 						
 				}
             }
@@ -299,18 +370,18 @@ void SpecificWorker::yoloWait()
 void SpecificWorker::compare(RoboCompRGBD::PointSeq pointMatrix)
 {
     // Check if the predicted labels are on sight
-    listCreate.clear();
-    listDelete.clear();
+    tables[processTable].listCreate.clear();
+    tables[processTable].listDelete.clear();
 	
     //For each synthetic object
-    for(auto &synth: listVisible)
+    for(auto &synth: tables[processTable].listVisible)
     {
         synth.intersectArea = 0;
         synth.explained = false;
         std::vector<TCandidate> listCandidates;
 		
         //It is compared with real objects
-        for(auto &yolo: listYoloObjects)
+        for(auto &yolo: tables[processTable].listYoloObjects)
         {
             //If it is the same type and has not been assigned yet
             if(synth.type == yolo.type and yolo.assigned == false)
@@ -353,12 +424,12 @@ void SpecificWorker::compare(RoboCompRGBD::PointSeq pointMatrix)
     }
 
     //listDelete: Extract objects not explained by measurements
-    for(auto &o : listVisible)
+    for(auto &o : tables[processTable].listVisible)
         if(o.explained == false)
-            listDelete.push_back(o);
+            tables[processTable].listDelete.push_back(o);
 
     //listCreate: objects to be created due to measurements not assigned to objects
-    for(auto &y: listYoloObjects)
+    for(auto &y: tables[processTable].listYoloObjects)
         if(y.assigned == false)
         {
             TObject n;
@@ -368,7 +439,7 @@ void SpecificWorker::compare(RoboCompRGBD::PointSeq pointMatrix)
             int idx = r.center().y()*640 + r.center().x();
             RoboCompRGBD::PointXYZ p = pointMatrix[idx];
             n.pose = QVec::vec6(p.x, p.y, p.z, 0, 0, 0);
-            listCreate.push_back(n);
+            tables[processTable].listCreate.push_back(n);
         }
 	
     setState(States::Stress);
@@ -376,9 +447,9 @@ void SpecificWorker::compare(RoboCompRGBD::PointSeq pointMatrix)
 
 void SpecificWorker::stress()
 {
-    qDebug() << "Stress: size of listObjects" << listObjects.size() << "and listVisible" << listVisible.size();
+    qDebug() << "Stress: size of listObjects" << tables[processTable].listObjects.size() << "and listVisible" << tables[processTable].listVisible.size();
     //The position of the object is corrected
-    for(auto &synth: listVisible)
+    for(auto &synth: tables[processTable].listVisible)
     {
         //If the synthetic object is explained, only its position in the innermodel is updated
         if(synth.explained)
@@ -391,13 +462,13 @@ void SpecificWorker::stress()
     }
 
     //A non-existent object is removed
-    if (listDelete.size() > 0)
+    if (tables[processTable].listDelete.size() > 0)
     {
-        for(auto &n: listDelete)
+        for(auto &n: tables[processTable].listDelete)
         {
             if(n.type != "cup")  //Only cups for now
                 continue;
-            qDebug() << "	delete object " << n.name;
+            qDebug() << "	delete object " << n.name <<n.idx;
 
             //It is removed from the innermodel
             try {
@@ -408,88 +479,88 @@ void SpecificWorker::stress()
             }
 
             //It is removed from the list of synthetic objects
-            for(uint i = 0; i<listObjects.size(); i++)
+            for(uint i = 0; i<tables[processTable].listObjects.size(); i++)
             {
-                if(n.idx == listObjects[i].idx)
+                if(n.idx == tables[processTable].listObjects[i].idx)
                 {
-                    listObjects.erase(listObjects.begin()+i);
-                    ids[n.name.at(5).digitValue()] = 0;
+                    tables[processTable].listObjects.erase(tables[processTable].listObjects.begin()+i);
+                    ids[n.idx] = 0;
                 }
             }
 
-            for(uint i = 0; i<listVisible.size(); i++)
-                if(n.idx == listVisible[i].idx)
-                    listVisible.erase(listVisible.begin()+i);
+            for(uint i = 0; i<tables[processTable].listVisible.size(); i++)
+                if(n.idx == tables[processTable].listVisible[i].idx)
+                    tables[processTable].listVisible.erase(tables[processTable].listVisible.begin()+i);
         }
     }
 
     //New objects are added
-    if(listObjects.size() < MAX_OBJECTS)
-        for(auto &n: listCreate)
+    if(tables[processTable].listObjects.size() < MAX_OBJECTS)
+        for(auto &n: tables[processTable].listCreate)
         {
             if(n.type != "cup")  //Only cups for now
                 continue;
 
-            //countertopA is the table
-            QVec ot = innermodel->transform("countertopA", n.pose, "rgbd");
+            //processTable is the table
+            QVec ot = innermodel->transform(tables[processTable].name, n.pose, "rgbd");
 
-            // create a new unused name
-            QString name = QString::fromStdString(n.type);
-            //New object is created
-            TObject to;
+			// create a new unused name
+			QString name = QString::fromStdString(n.type);
+			//New object is created
+			TObject to;
 
-            to.type = "cup";
-            to.idx = getId();
-            to.name = "taza_" + QString::number(to.idx);
-            to.explained = false;
-            to.prob = 100;
-            to.time.start();
+			to.type = "cup";
+			to.idx = getId();
+			to.name = "taza_" + QString::number(to.idx);
+			to.explained = false;
+			to.prob = 100;
 			to.pose = QVec::vec6(ot.x(), ot.y(), ot.z(), 0, 0, 0);
 			
-            //It is added to the innermodel
-            try {
-                innermodel->newTransform(to.name, "", innermodel->getNode("countertopA"), ot.x(), ot.y(), ot.z(), 0, 0, 0);
-            }
-            catch(QString s) {
-                qDebug() << s;
-            }
+			//It is added to the innermodel
+			try {
+				innermodel->newTransform(to.name, "", innermodel->getNode(tables[processTable].name), ot.x(), ot.y(), ot.z(), 0, 0, 0);
+			}
+			catch(QString s) {
+				qDebug() << s;
+			}
 			
-            to.bb.push_back(QVec::vec3(40,0,40));
-            to.bb.push_back(QVec::vec3(-40,0,40));
-            to.bb.push_back(QVec::vec3(40,0,-40));
-            to.bb.push_back(QVec::vec3(-40,-0,-40));
-            to.bb.push_back(QVec::vec3(40,80,40));
-            to.bb.push_back(QVec::vec3(-40,80,40));
-            to.bb.push_back(QVec::vec3(40,80,-40));
-            to.bb.push_back(QVec::vec3(-40,80,-40));
+			to.bb.push_back(QVec::vec3(40,0,40));
+			to.bb.push_back(QVec::vec3(-40,0,40));
+			to.bb.push_back(QVec::vec3(40,0,-40));
+			to.bb.push_back(QVec::vec3(-40,-0,-40));
+			to.bb.push_back(QVec::vec3(40,80,40));
+			to.bb.push_back(QVec::vec3(-40,80,40));
+			to.bb.push_back(QVec::vec3(40,80,-40));
+			to.bb.push_back(QVec::vec3(-40,80,-40));
 
-            //If the box is in the plane you can add the object to the lists
-            InnerModelCamera *c = innermodel->getCamera("rgbd");
-            bool valid = true;
-            for(auto i: to.bb)
-            {
-                QVec res = c->project(innermodel->transform("rgbd", i, to.name));
-                // Control between 0 and 640 res
-                if(res.x() >= 640 or res.x() <= 0 or res.y() <= 0 or res.y() >= 480 or std::isnan(res.x()) or std::isnan(res.y()))
-                {
-                    valid = false;
-                    ids[to.idx] = 0; //Revisar problemas con nombres. Se llena el vector al acceder a getID
-                    try {
-                        innermodel->removeNode(to.name);
-                    }
-                    catch(...) {
-                        qDebug() << "Trying to remove non-existent node";
-                    }
-                    goto end; //get out the loop
-                }
-            }
+			//If the box is in the plane you can add the object to the lists
+			InnerModelCamera *c = innermodel->getCamera("rgbd");
+			bool valid = true;
+			for(auto i: to.bb)
+			{
+				QVec res = c->project(innermodel->transform("rgbd", i, to.name));
+				// Control between 0 and 640 res
+				if(res.x() >= 640 or res.x() <= 0 or res.y() <= 0 or res.y() >= 480 or std::isnan(res.x()) or std::isnan(res.y()))
+				{
+					valid = false;
+					ids[to.idx] = 0; 
+					try {
+						innermodel->removeNode(to.name);
+					}
+					catch(...) {
+						qDebug() << "Trying to remove non-existent node";
+					}
+					goto end; //get out the loop
+				}
+			}
 		end:
-            if(valid == true)
-            {
-                listObjects.push_back(to);
-                listVisible.push_back(to); //The object is added
-            }
-        }
+			if(valid == true)
+			{
+				tables[processTable].listObjects.push_back(to);
+				tables[processTable].listVisible.push_back(to); //The object is added
+			}
+		}
+	
 
     updateTableMap();
 	
@@ -594,7 +665,7 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
     cv::cvtColor(dest1,dest,CV_YCrCb2RGB);
 	
 
-    for(auto yolo: listYoloObjects)
+    for(auto yolo: tables[processTable].listYoloObjects)
     {
         if( yolo.prob > 35)
         {
@@ -611,7 +682,7 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
         }
     }
 
-    for(auto o: listObjects)
+    for(auto o: tables[processTable].listObjects)
     {
         CvPoint p1, p2;
         p1.x = int(o.box.x);
@@ -631,7 +702,8 @@ void SpecificWorker::getYawMotorState()
     try
     {
         RoboCompJointMotor::MotorState mstateMap = jointmotor_proxy->getMotorState("head_yaw_joint");
-        checkTime();
+		changeTable();
+		checkMove();
 
         if(fabs(yawPosition - mstateMap.pos) > 0.05f)
             setState(States::Moving);
@@ -643,11 +715,11 @@ void SpecificWorker::getYawMotorState()
 }
 
 
-void SpecificWorker::checkTime()
+void SpecificWorker::checkMove()
 {
 	long min = std::numeric_limits<int>::max();
 	Key cell;
-	for ( auto it = tableMap.begin(); it != tableMap.end(); ++it )
+	for ( auto it = tables[processTable].tableMap.begin(); it != tables[processTable].tableMap.end(); ++it )
 	{
 		if(it->second.temperature < min)
 		{
@@ -656,21 +728,15 @@ void SpecificWorker::checkTime()
 		}
 	}
 	
-
-	if(min < -200){
+	if(min < -100){
 		RoboCompJointMotor::MotorGoalPosition head_yaw_joint, head_pitch_joint;
 
 		head_yaw_joint.name = "head_yaw_joint"; 	//side to side
 		head_pitch_joint.name = "head_pitch_joint"; //up and down
 
 		QVec v = QVec::vec3(cell.z, 0, cell.x);
-		QVec res = innermodel->transform("rgbd", v, "countertopA");
+		QVec res = innermodel->transform("rgbd", v, tables[processTable].name);
 		
-		//QPoint center = QPoint(170, 240);
-		
-		//head_yaw_joint.position = atan2(res.x() - center.x(), res.z());
-		//head_pitch_joint.position = atan2(res.z(), center.y() - res.y());
-
 		head_yaw_joint.position = atan2(res.x() , res.z());
 		head_pitch_joint.position = atan2(res.z(), res.y());
 		
@@ -678,6 +744,7 @@ void SpecificWorker::checkTime()
 			head_pitch_joint.position = 1;
 		if(head_yaw_joint.position > 1)
 			head_yaw_joint.position = 1;
+		
 		qDebug() << "Yaw:" << head_yaw_joint.position << "     Pitch:" << head_pitch_joint.position;
 
 		if(abs(head_pitch_joint.position) > 0.15 || abs(head_yaw_joint.position) > 0.15){ 
@@ -691,14 +758,60 @@ void SpecificWorker::checkTime()
 			}
 		}
 		
-		std::for_each(tableMap.begin(),tableMap.end(), []( decltype(*tableMap.begin())& p) { p.second.temperature += 200;});
+		std::for_each(tables[processTable].tableMap.begin(),tables[processTable].tableMap.end(), []( decltype(*tables[processTable].tableMap.begin())& p) { p.second.temperature += 100;});
+	}
+}
+
+void SpecificWorker::changeTable()
+{
+	qDebug() <<tables[processTable].id <<tables[processTable].temperature;
+	bool changed = false;
+	for(int i= 0; i< tables.size() && !changed; i++)
+	{
+		if(tables[i].temperature < -100){
+			processTable = i;
+			changed = true;
+			
+			RoboCompJointMotor::MotorGoalPosition head_yaw_joint, head_pitch_joint;
+
+			head_yaw_joint.name = "head_yaw_joint"; 	//side to side
+			head_pitch_joint.name = "head_pitch_joint"; //up and down
+
+			QVec v = QVec::vec3(0, 0, 0);
+			QVec res = innermodel->transform("rgbd", v, tables[processTable].name);
+			
+			head_yaw_joint.position = atan2(res.x() , res.z());
+			head_pitch_joint.position = atan2(res.z(), res.y());
+			
+			if(head_pitch_joint.position > 1)
+				head_pitch_joint.position = 1;
+			if(head_yaw_joint.position > 1)
+				head_yaw_joint.position = 1;
+			qDebug() << "Yaw:" << head_yaw_joint.position << "     Pitch:" << head_pitch_joint.position;
+
+			if(abs(head_pitch_joint.position) > 0.15 || abs(head_yaw_joint.position) > 0.15){ 
+				try
+				{
+					jointmotor_proxy->setPosition(head_yaw_joint);
+					jointmotor_proxy->setPosition(head_pitch_joint);
+					sleep(2); //wait for the engines
+				} catch(const Ice::Exception &e) {
+					std::cout << e <<endl;
+				}
+			}
+		}
+		
+		if(processTable == i)
+			tables[i].temperature ++;
+		else
+			tables[i].temperature --;
 	}
 }
 
 int SpecificWorker::getId()
 {
     uint j;
-    for(j = 1; j<10; j++)
+    for(j = 0; j<100; j++)
     {
         if(ids[j] == 0)
         {
@@ -712,12 +825,12 @@ int SpecificWorker::getId()
 void SpecificWorker::updateTableMap()
 {
     auto c = std::bind(&SpecificWorker::cool, this, std::placeholders::_1);
-    std::for_each(tableMap.begin(),tableMap.end(), c);
+    std::for_each(tables[processTable].tableMap.begin(),tables[processTable].tableMap.end(), c);
 }
 
 void SpecificWorker::cool(std::pair<const Key, Value>& cell)
 {
-    for(auto synth: listObjects)
+    for(auto synth: tables[processTable].listObjects)
     {
         // Find the projection
         QRect objProj(synth.pose.z()-40, synth.pose.x()-40, 80, 80);
@@ -727,23 +840,19 @@ void SpecificWorker::cool(std::pair<const Key, Value>& cell)
         float area = (float)(i.width() * i.height());
 		// If the area is 0 there is no intersection
         if(area > 0)
-		{
             cell.second.temperature -= 10;
-			qDebug() <<"----------------------Obj"<<objProj.x()<< objProj.y()<<"coor" << cell.first.z<< cell.first.x<<"area"<<area<< "temperature" << cell.second.temperature;
-		}else
+		else
             cell.second.temperature -= 3;
     }
 
-    if(listObjects.empty())
+    if(tables[processTable].listObjects.empty())
 		cell.second.temperature -= 3;
 	
     // Warm
     InnerModelCamera *c = innermodel->getCamera("rgbd");
     QVec cellCoor = QVec::vec3(cell.first.z, 0, cell.first.x);
-    QVec res = c->project(innermodel->transform("rgbd", cellCoor, "countertopA"));
+    QVec res = c->project(innermodel->transform("rgbd", cellCoor, tables[processTable].name));
     if(res.x() < 640 and res.x() > 0 and res.y() > 0 and res.y() < 480) { // Control between 0 and 640 res.x and control between 0 and 480 res.y
-		//qDebug()<< cellCoor.x() << cellCoor.y() << cellCoor.z();
-		//qDebug()<< res.x() << res.y() << res.z();
 		if(res.x() <40 || res.x() >600)
 			cell.second.temperature += 1;
 		else if((res.x() > 40 && res.x() < 100) || (res.x() > 540 && res.x() < 600)){

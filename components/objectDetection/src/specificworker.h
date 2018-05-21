@@ -118,7 +118,7 @@ private:
 private:
 	// State machine
 	States state;
-	void setState(States state);
+	void setState(States state);						// Change the state of state machine
 	void predict(); 									// Project objects on camera creating yoloSLabels
 	void yoloInit();									// Access to yolo is divided into two states so that it has time to process and send the result
 	void yoloWait();									// Wait for yolo server
@@ -127,37 +127,37 @@ private:
 	
 	int yoloId; 		// Yolo server id
 	float yawPosition; 	// Engine yaw position
-	int ids[10]; 		// Auxiliary array for cups ID (only allows 10 objects)
+	int ids[100]; 		// Auxiliary array for cups ID (only allows 100 objects)
 	bool moved; 		// If you're moving because the previous object, you mustn't move in the same check by other object
 
 	void setDefaultHeadPosition(); 	// Initial head position 
 	void getRgbd();					// Gets camera information
-	void updateinner();				// Update motor state
-	void getYawMotorState();		// Check if yaw motor is moving
-	void checkTime(); 				// Check time to change head position
-	int getId(); 					// Return the first free id
+	void updateinner();				// Updates motor state
+	void getYawMotorState();		// Checks if yaw motor is moving
+	void checkMove(); 				// Checks temperature to change head position
+	int getId(); 					// Returns the first free id
 	void updateTableMap();			// Cold and warm function
+	void changeTable();				// Checks if it must change of table or actualize the temperature
 	
 	//Yolo
-	RoboCompYoloServer::Image yoloImage;
-	RoboCompYoloServer::Labels yoloLabels;
+	RoboCompYoloServer::Image yoloImage;	// Image that is send to YOLO
+	RoboCompYoloServer::Labels yoloLabels;	// Objects detected by YOLO
 	
 	//Objects geometry
 	struct TObject
 	{
-		QString name;			//instance
-		std::string type;		//class
-		bool explained;		
-		int idx;
-		std::vector<QVec> bb;	//bounding box
-		std::vector<QVec> projbb;
-		float intersectArea;
-		QPoint error;
-		QVec pose;
-		bool assigned;
-		float prob;
-		QElapsedTimer time;
-		RoboCompYoloServer::Box box;
+		QString name;				// Object name in innermodel
+		std::string type;			// Object type from YOLO
+		bool explained;				//
+		int idx;					// Object number id
+		std::vector<QVec> bb;		// Bounding box
+		std::vector<QVec> projbb;	// Bounding box projection 
+		float intersectArea;		// Intersection area with YOLO Bounding box
+		QPoint error;				// Error to YOLO
+		QVec pose;					// Object position over the table
+		bool assigned;				// Bool to check if object is assigned to 
+		float prob;					// Probability of been the object detected by YOLO
+		RoboCompYoloServer::Box box;// Box that contains the object
 		TObject() 
 		{
 			name = "";
@@ -176,12 +176,6 @@ private:
 	};
 	
 	typedef std::vector<TObject> TObjects;
-
-	TObjects listObjects;
-	TObjects listYoloObjects;
-	TObjects listCreate;
-	TObjects listDelete;
-	TObjects listVisible;
 	
 	// Map creation to model the table
 	struct Key
@@ -224,10 +218,27 @@ private:
 		};
 	};	
 			
-	typedef	std::unordered_map<Key, Value, KeyHasher> map;
-	map tableMap;
+	typedef	std::unordered_map<Key, Value, KeyHasher> map; 	// Map struct to manage temperature over the table
 	
-	void cool(std::pair<const Key, Value>& cell);			// Cools the map, more if there is an object over this area
+	struct Table
+	{
+	  map tableMap; 			// Intern map of temperature it changes by objects position
+	  int id;					// Table id
+	  QVec pose;				// Table position
+	  long temperature;			// Table temperature
+	  QString name;				// Table innermodel name
+	  TObjects listObjects;		// All objects over this table
+	  TObjects listYoloObjects;	// All the objects that YOLO detects
+	  TObjects listCreate;		// All the objects that appears at the scene
+	  TObjects listDelete;		// All the objects that disappears from the scene
+	  TObjects listVisible;		// Objects that are visible by RGBD camera
+	};
+	
+	typedef std::vector<Table> Tables; 
+	Tables tables; 						//Tables in the world
+	int processTable; 					//Table id to process on
+	
+	void cool(std::pair<const Key, Value>& cell);		// Cools the map, more if there is an object over this area
 };
 
 #endif
