@@ -225,6 +225,7 @@ private:
 	  map tableMap; 			// Intern map of temperature it changes by objects position
 	  int id;					// Table id
 	  QVec pose;				// Table position
+	  QVec dim;					// Table dimension
 	  long temperature;			// Table temperature
 	  QString name;				// Table innermodel name
 	  TObjects listObjects;		// All objects over this table
@@ -235,8 +236,11 @@ private:
 	};
 	
 	typedef std::vector<Table> Tables; 
-	Tables tables; 						//Tables in the world
-	int processTable; 					//Table id to process on
+	Tables tables; 					// Tables in the world
+	Tables listTablesCreate;		// All the tables that appears at the scene
+	Tables listTablesDelete;		// All the tables that disappears from the scene
+	Tables listTablesVisible;		// All the tables that are visible
+	int processTable; 				// Table id to process on
 	
 	void cool(std::pair<const Key, Value>& cell);		// Cools the map, more if there is an object over this area
 };
