@@ -51,9 +51,10 @@
     } \
   }
 
-#define MAX_OBJECTS 5
+#define MAX_OBJECTS 6
 #define CELL_WIDTH 40
 #define CELL_HEIGHT 40
+#define TEMP_TABLE 100
 
 #include <cmath>
 #include <cstdlib>
@@ -237,9 +238,6 @@ private:
 	
 	typedef std::vector<Table> Tables; 
 	Tables tables; 					// Tables in the world
-	Tables listTablesCreate;		// All the tables that appears at the scene
-	Tables listTablesDelete;		// All the tables that disappears from the scene
-	Tables listTablesVisible;		// All the tables that are visible
 	int processTable; 				// Table id to process on
 	
 	void cool(std::pair<const Key, Value>& cell);		// Cools the map, more if there is an object over this area
