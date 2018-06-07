@@ -55,6 +55,8 @@
 #define CELL_WIDTH 40
 #define CELL_HEIGHT 40
 #define TEMP_TABLE 100
+#define TEMP_CELL 200
+#define DIST 40
 
 #include <cmath>
 #include <cstdlib>
@@ -135,11 +137,13 @@ private:
 	void getRgbd();					// Gets camera information
 	void updateinner();				// Updates motor state
 	void getYawMotorState();		// Checks if yaw motor is moving
-	void checkMove(); 				// Checks temperature to change head position
+	void findPointAttention(); 		// Finds the coolest point on the table that it is watching
+	void centerAttention();			// Try to center the camera center to posAttention
+	void changeObject(); 			// Checks temperature to change head position
 	int getId(); 					// Returns the first free id
 	void updateTableMap();			// Cold and warm function
 	void changeTable();				// Checks if it must change of table or actualize the temperature
-	
+
 	//Yolo
 	RoboCompYoloServer::Image yoloImage;	// Image that is send to YOLO
 	RoboCompYoloServer::Labels yoloLabels;	// Objects detected by YOLO
@@ -239,6 +243,7 @@ private:
 	typedef std::vector<Table> Tables; 
 	Tables tables; 					// Tables in the world
 	int processTable; 				// Table id to process on
+	QVec posAttention;				// Pose where the cam must be centered in the world
 	
 	void cool(std::pair<const Key, Value>& cell);		// Cools the map, more if there is an object over this area
 };
