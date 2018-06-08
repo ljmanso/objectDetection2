@@ -58,6 +58,10 @@
 #define TEMP_CELL 200
 #define DIST 40
 
+#define MIN_TEMP -300
+#define MAX_TEMP 300
+#define ZERO_TEMP 0
+
 #include <cmath>
 #include <cstdlib>
 #include <ctime>
@@ -130,6 +134,7 @@ private:
 	
 	int yoloId; 		// Yolo server id
 	float yawPosition; 	// Engine yaw position
+	float pitchPosition;// Engine pitch position
 	int ids[100]; 		// Auxiliary array for cups ID (only allows 100 objects)
 	bool moved; 		// If you're moving because the previous object, you mustn't move in the same check by other object
 
@@ -139,7 +144,6 @@ private:
 	void getYawMotorState();		// Checks if yaw motor is moving
 	void findPointAttention(); 		// Finds the coolest point on the table that it is watching
 	void centerAttention();			// Try to center the camera center to posAttention
-	void changeObject(); 			// Checks temperature to change head position
 	int getId(); 					// Returns the first free id
 	void updateTableMap();			// Cold and warm function
 	void changeTable();				// Checks if it must change of table or actualize the temperature
@@ -246,6 +250,7 @@ private:
 	QVec posAttention;				// Pose where the cam must be centered in the world
 	
 	void cool(std::pair<const Key, Value>& cell);		// Cools the map, more if there is an object over this area
+	void updateTemperature(TObject o, int temp); 						// Cools only the object changed of position
 };
 
 #endif
