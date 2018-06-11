@@ -589,6 +589,33 @@ home/robocomp/robocomp/classes/sigwatch/sigwatch.cpp.s:
 	cd /home/robolab/robocomp/components/objectDetection2/components/objectDetection && $(MAKE) -f src/CMakeFiles/objectDetectionComp.dir/build.make src/CMakeFiles/objectDetectionComp.dir/home/robocomp/robocomp/classes/sigwatch/sigwatch.cpp.s
 .PHONY : home/robocomp/robocomp/classes/sigwatch/sigwatch.cpp.s
 
+innerviewer.o: innerviewer.cpp.o
+
+.PHONY : innerviewer.o
+
+# target to build an object file
+innerviewer.cpp.o:
+	cd /home/robolab/robocomp/components/objectDetection2/components/objectDetection && $(MAKE) -f src/CMakeFiles/objectDetectionComp.dir/build.make src/CMakeFiles/objectDetectionComp.dir/innerviewer.cpp.o
+.PHONY : innerviewer.cpp.o
+
+innerviewer.i: innerviewer.cpp.i
+
+.PHONY : innerviewer.i
+
+# target to preprocess a source file
+innerviewer.cpp.i:
+	cd /home/robolab/robocomp/components/objectDetection2/components/objectDetection && $(MAKE) -f src/CMakeFiles/objectDetectionComp.dir/build.make src/CMakeFiles/objectDetectionComp.dir/innerviewer.cpp.i
+.PHONY : innerviewer.cpp.i
+
+innerviewer.s: innerviewer.cpp.s
+
+.PHONY : innerviewer.s
+
+# target to generate assembly for a file
+innerviewer.cpp.s:
+	cd /home/robolab/robocomp/components/objectDetection2/components/objectDetection && $(MAKE) -f src/CMakeFiles/objectDetectionComp.dir/build.make src/CMakeFiles/objectDetectionComp.dir/innerviewer.cpp.s
+.PHONY : innerviewer.cpp.s
+
 main.o: main.cpp.o
 
 .PHONY : main.o
@@ -783,6 +810,9 @@ help:
 	@echo "... home/robocomp/robocomp/classes/sigwatch/sigwatch.o"
 	@echo "... home/robocomp/robocomp/classes/sigwatch/sigwatch.i"
 	@echo "... home/robocomp/robocomp/classes/sigwatch/sigwatch.s"
+	@echo "... innerviewer.o"
+	@echo "... innerviewer.i"
+	@echo "... innerviewer.s"
 	@echo "... main.o"
 	@echo "... main.i"
 	@echo "... main.s"

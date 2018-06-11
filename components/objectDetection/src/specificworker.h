@@ -32,7 +32,7 @@
 #endif
 
 #include <genericworker.h>
-
+#include <innerviewer.h>
 #ifndef Q_MOC_RUN
 	#include <innermodel/innermodel.h>
 	#include <innermodel/innermodelviewer.h>
@@ -58,8 +58,8 @@
 #define TEMP_CELL 200
 #define DIST 40
 
-#define MIN_TEMP -300
-#define MAX_TEMP 300
+#define MIN_TEMP -100
+#define MAX_TEMP 200
 #define ZERO_TEMP 0
 
 #include <cmath>
@@ -80,6 +80,7 @@ class SpecificWorker : public GenericWorker
 	QString id_robot, id_camera,id_camera_transform;
 
 	InnerModel *innermodel;
+	InnerViewer *innerViewer;
 
 	//For poses calculation respect to the canonical one
 	tagsList tags;

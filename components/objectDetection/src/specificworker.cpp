@@ -52,7 +52,13 @@ SpecificWorker::~SpecificWorker()
 bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 {
     string name = PROGRAM_NAME;
-    innermodel = new InnerModel(params[name+".innermodel"].value);
+
+	std::shared_ptr<InnerModel> innerModelS = std::make_shared<InnerModel>(params[name+".innermodel"].value);
+    innermodel = innerModelS.get();
+
+	
+	innerViewer = new InnerViewer(innerModelS);
+	innerViewer->start();
 
     id_robot=QString::fromStdString(params[name+".id_robot"].value);
     id_camera=QString::fromStdString(params[name+".id_camera"].value);
@@ -62,7 +68,9 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 	#if FCL_SUPPORT==1
 			
 		//Update robot's position
-		innermodel->updateTransformValues("robot", 1640, 0 , -3000, 0, -1.57, 0);
+		innermodel->updateTransformValues("robot", 1677.5, 0 , -2870, 0, -1.570796371, 0);
+		//innerViewer->ts_updateTransformValues("robot", QVec::vec6(1640, 0 , -3000, 0, -1.57, 0));
+		
 		
 		auto table = innermodel->getNode<InnerModelNode>("countertopA_mesh");
 		QMat r1q = innermodel->getRotationMatrixTo("root", "countertopA");
@@ -200,7 +208,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		
 	#endif
 		
-    //setDefaultHeadPosition();
+    setDefaultHeadPosition();
     yawPosition = 0.0;
 
 	setState(States::Predict);
@@ -213,7 +221,7 @@ void SpecificWorker::compute()
     qDebug() << "------------------------------------------------------------";
     getRgbd();
     updateinner();
-
+	//innerViewer->run();
 #ifdef USE_QTGUI
     try
     {
@@ -460,13 +468,17 @@ void SpecificWorker::stress()
             InnerModelTransform *t = innermodel->getTransform(synth.name);
 			float maxError = sqrt((error.y()*error.y()) + (error.x()*error.x()));
 			if(maxError > 10)
-			//Cools the position on table where the object is
-				updateTemperature(synth, MIN_TEMP-50);
+			//Warms the position on table where the object is
+			updateTemperature(synth, 0);
 				
 			qDebug()<<"Update:" << synth.pose;
 			
             // We assume that the cup does not vary in Y because it is on the table
             innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
+			InnerModelTransform *tn = innermodel->getTransform(synth.name);
+			synth.pose = QVec::vec6(tn->getTr().x() , tn->getTr().y(), tn->getTr().z(), 0, 0, 0);
+			//Cools the position on table where the object is
+			updateTemperature(synth, MIN_TEMP-50);
         }
     }
 
@@ -481,8 +493,8 @@ void SpecificWorker::stress()
 
             //It is removed from the innermodel
             try {
-                innermodel->removeNode(n.name);
-				updateTemperature(n, ZERO_TEMP);
+                innerViewer->ts_removeNode(n.name);
+ 				updateTemperature(n, ZERO_TEMP);
             }
             catch(QString s) {
                 qDebug() << s;
@@ -528,7 +540,8 @@ void SpecificWorker::stress()
 			
 			//It is added to the innermodel
 			try {
-				innermodel->newTransform(to.name, "", innermodel->getNode(tables[processTable].name), ot.x(), ot.y(), ot.z(), 0, 0, 0);
+				innerViewer->ts_addTransform(to.name, tables[processTable].name, to.pose);
+				innerViewer->addMesh_ignoreExisting(to.name + "_mesh", to.name, QVec::vec3(0,0,0), QVec::vec3(1.570796371,0,-1.570796371), "/home/robocomp/robocomp/files/osgModels/mobiliario/taza.osg", QVec::vec3(120,120,120));
 			}
 			catch(QString s) {
 				qDebug() << s;
@@ -555,7 +568,7 @@ void SpecificWorker::stress()
 					valid = false;
 					ids[to.idx] = 0; 
 					try {
-						innermodel->removeNode(to.name);
+						innerViewer->ts_removeNode(n.name);
 					}
 					catch(...) {
 						qDebug() << "Trying to remove non-existent node";
@@ -567,7 +580,7 @@ void SpecificWorker::stress()
 			if(valid == true)
 			{
 				//Cools the position on table where the object is
-				updateTemperature(to, MIN_TEMP-50);
+				updateTemperature(to, MIN_TEMP);
 				
 				tables[processTable].listObjects.push_back(to);
 				tables[processTable].listVisible.push_back(to); //The object is added
@@ -598,7 +611,7 @@ void SpecificWorker::setDefaultHeadPosition()
     RoboCompJointMotor::MotorGoalPosition head_pitch_joint, head_yaw_joint;
 
     head_pitch_joint.name = "head_pitch_joint";
-    head_pitch_joint.position = 0.9;
+    head_pitch_joint.position = 0.0;
 
     head_yaw_joint.name = "head_yaw_joint";
     head_yaw_joint.position = 0.0;
@@ -848,8 +861,6 @@ void SpecificWorker::cool(std::pair<const Key, Value>& cell)
 {
     for(auto synth: tables[processTable].listObjects)
     {
-        // Find the projection
-		//QVec pose = innermodel->transform(tables[processTable].name, synth.pose, "world");
 		QVec pose = synth.pose;
         QRect objProj(pose.z()-40, pose.x()-40, 80, 80);
 		QRect cellRect(cell.first.z, cell.first.x, CELL_WIDTH, CELL_HEIGHT);

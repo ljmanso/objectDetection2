@@ -3,6 +3,7 @@
 SET ( SOURCES
   specificworker.cpp
   specificmonitor.cpp
+  innerviewer.cpp
 #  $ENV{ROBOCOMP}/classes/agmInner/agmInner.cpp
 #  color_segmentation/BIP.cpp
 #  color_segmentation/Canny.cpp
@@ -23,6 +24,7 @@ SET ( HEADERS
   specificworker.h
   specificmonitor.h
   /usr/include/time.h
+  innerviewer.h
 #  viewer/viewer.h
 #  $ENV{ROBOCOMP}/classes/agmInner/agmInner.h
 )
@@ -38,7 +40,7 @@ INCLUDE ($ENV{ROBOCOMP}/cmake/modules/opencv2.cmake )
 
 include_directories( /usr/include/hdf5/serial/ /usr/local/include/pcl-1.8/ )
 
-SET ( LIBS ${LIBS} -lfcl)
+SET ( LIBS ${LIBS} -lfcl osgDB  osg osgViewer)
 
 ADD_DEFINITIONS( -std=c++14 -fopenmp -fext-numeric-literals )
 
