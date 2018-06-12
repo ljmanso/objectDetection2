@@ -58,7 +58,8 @@
 #define TEMP_CELL 200
 #define DIST 40
 
-#define MIN_TEMP -100
+#define MIN_TEMP_OBJ -200
+#define MIN_TEMP_CELL -100
 #define MAX_TEMP 200
 #define ZERO_TEMP 0
 

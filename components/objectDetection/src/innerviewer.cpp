@@ -69,11 +69,11 @@ InnerViewer::InnerViewer( const InnerPtr &innerModel_, const std::string &name_,
 
 void InnerViewer::run()
 {
-	while(true)
+	//while(true)
 	{
 		if(!stop.load())
 		{
-           // guard gl(mutex);
+            guard gl(mutex);
             innerModelViewer->update(); 
 			viewer.frame();
 			std::this_thread::sleep_for(std::chrono::microseconds(period));

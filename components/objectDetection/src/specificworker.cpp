@@ -58,7 +58,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 
 	
 	innerViewer = new InnerViewer(innerModelS);
-	innerViewer->start();
+	//innerViewer->start();
 
     id_robot=QString::fromStdString(params[name+".id_robot"].value);
     id_camera=QString::fromStdString(params[name+".id_camera"].value);
@@ -66,11 +66,6 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 
 	// Start map struct
 	#if FCL_SUPPORT==1
-			
-		//Update robot's position
-		innermodel->updateTransformValues("robot", 1677.5, 0 , -2870, 0, -1.570796371, 0);
-		//innerViewer->ts_updateTransformValues("robot", QVec::vec6(1640, 0 , -3000, 0, -1.57, 0));
-		
 		
 		auto table = innermodel->getNode<InnerModelNode>("countertopA_mesh");
 		QMat r1q = innermodel->getRotationMatrixTo("root", "countertopA");
@@ -86,12 +81,10 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		// - y = height
 		// - z = depth
 		int width = box.width();
-		//int height = box.height();
 		int depth = box.depth();
 
 		Table t;
 		// Init map
-
 
 		for(int i=-depth/2; i<depth/2; i+=CELL_WIDTH)
 		{
@@ -124,7 +117,6 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		// - y = height
 		// - z = depth
 		int width2 = box2.width();
-		//int height = box.height();
 		int depth2 = box2.depth();
 
 		// Init map
@@ -221,7 +213,7 @@ void SpecificWorker::compute()
     qDebug() << "------------------------------------------------------------";
     getRgbd();
     updateinner();
-	//innerViewer->run();
+	innerViewer->run();
 #ifdef USE_QTGUI
     try
     {
@@ -408,7 +400,7 @@ void SpecificWorker::compare(RoboCompRGBD::PointSeq pointMatrix)
 
                 // If the area is 0 there is no intersection
                 // If the error is less than twice the width of the synthetic rectangle
-                if(area > 0 or error.manhattanLength()< rs.width()*2)
+                if(area > 0 or error.manhattanLength()< rs.width()*3)
                 {
                     //A candidate is created and added to the list of candidates in an orderly manner according to the area and the error
                     //The object will be placed earlier in the list the less difference there is with the original
@@ -457,7 +449,7 @@ void SpecificWorker::compare(RoboCompRGBD::PointSeq pointMatrix)
 void SpecificWorker::stress()
 {
     qDebug() << "Stress: size of listObjects" << tables[processTable].listObjects.size() << "and listVisible" << tables[processTable].listVisible.size() << "table" << processTable;
-	
+	//qDebug()<< "listCreate size:" << tables[processTable].listCreate.size() << "listDelete size" << tables[processTable].listDelete.size();
     //The position of the object is corrected
     for(auto &synth: tables[processTable].listVisible)
     {
@@ -467,18 +459,22 @@ void SpecificWorker::stress()
             QPoint error = synth.error;
             InnerModelTransform *t = innermodel->getTransform(synth.name);
 			float maxError = sqrt((error.y()*error.y()) + (error.x()*error.x()));
-			if(maxError > 10)
-			//Warms the position on table where the object is
-			updateTemperature(synth, 0);
+			qDebug()<<"Error-----" << maxError;
+			if(maxError > 10.0)
+			{
+				//Warms the position on table where the object is
+				updateTemperature(synth, ZERO_TEMP);
+					
+				//qDebug()<<"		Update:" << synth.pose;
 				
-			qDebug()<<"Update:" << synth.pose;
-			
-            // We assume that the cup does not vary in Y because it is on the table
-            innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
-			InnerModelTransform *tn = innermodel->getTransform(synth.name);
-			synth.pose = QVec::vec6(tn->getTr().x() , tn->getTr().y(), tn->getTr().z(), 0, 0, 0);
-			//Cools the position on table where the object is
-			updateTemperature(synth, MIN_TEMP-50);
+				// We assume that the cup does not vary in Y because it is on the table
+				innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
+				InnerModelTransform *tn = innermodel->getTransform(synth.name);
+				synth.pose = QVec::vec6(tn->getTr().x() , tn->getTr().y(), tn->getTr().z(), 0, 0, 0);
+				//qDebug()<<"		New pose update:" << synth.pose;
+				//Cools the position on table where the object is
+				updateTemperature(synth, MIN_TEMP_OBJ);
+			}
         }
     }
 
@@ -489,7 +485,7 @@ void SpecificWorker::stress()
         {
             if(n.type != "cup")  //Only cups for now
                 continue;
-            qDebug() << "	delete object " << n.name <<n.idx;
+            //qDebug() << "	delete object " << n.name <<n.idx;
 
             //It is removed from the innermodel
             try {
@@ -540,6 +536,7 @@ void SpecificWorker::stress()
 			
 			//It is added to the innermodel
 			try {
+				//qDebug()<<"		New object" << to.name << to.pose;
 				innerViewer->ts_addTransform(to.name, tables[processTable].name, to.pose);
 				innerViewer->addMesh_ignoreExisting(to.name + "_mesh", to.name, QVec::vec3(0,0,0), QVec::vec3(1.570796371,0,-1.570796371), "/home/robocomp/robocomp/files/osgModels/mobiliario/taza.osg", QVec::vec3(120,120,120));
 			}
@@ -564,26 +561,24 @@ void SpecificWorker::stress()
 				QVec res = c->project(innermodel->transform("rgbd", i, to.name));
 				// Control between 0 and 640 res
 				if(res.x() >= 640 or res.x() <= 0 or res.y() <= 0 or res.y() >= 480 or std::isnan(res.x()) or std::isnan(res.y()))
-				{
 					valid = false;
-					ids[to.idx] = 0; 
-					try {
-						innerViewer->ts_removeNode(n.name);
-					}
-					catch(...) {
-						qDebug() << "Trying to remove non-existent node";
-					}
-					goto end; //get out the loop
-				}
+				
 			}
-		end:
 			if(valid == true)
 			{
 				//Cools the position on table where the object is
-				updateTemperature(to, MIN_TEMP);
+				updateTemperature(to, MIN_TEMP_OBJ);
 				
 				tables[processTable].listObjects.push_back(to);
 				tables[processTable].listVisible.push_back(to); //The object is added
+			}else{
+				try {
+					innerViewer->ts_removeNode(to.name);
+					ids[to.idx] = 0;
+				}
+				catch(...) {
+					qDebug() << "		Trying to remove non-existent node" << to.name;
+				}
 			}
 		}
 	
@@ -730,7 +725,6 @@ void SpecificWorker::getYawMotorState()
         RoboCompJointMotor::MotorState mstateMap = jointmotor_proxy->getMotorState("head_yaw_joint");
 		RoboCompJointMotor::MotorState mstateMapP = jointmotor_proxy->getMotorState("head_pitch_joint");
 		findPointAttention();
-		//qDebug()<<"World posAttention" << posAttention;
 		centerAttention();
 		//changeTable();
 
@@ -868,10 +862,10 @@ void SpecificWorker::cool(std::pair<const Key, Value>& cell)
         QRect i = cellRect.intersected(objProj);
         float area = (float)(i.width() * i.height());
 		// If the area is 0 there is no intersection
-		if(cell.second.temperature > MIN_TEMP)
+		if(cell.second.temperature > MIN_TEMP_CELL)
 		{
 			if(area > 0)
-				cell.second.temperature -= 10;
+				cell.second.temperature -= 15;
 			else
 				cell.second.temperature -= 1;
 		}
@@ -918,7 +912,7 @@ void SpecificWorker::cool(std::pair<const Key, Value>& cell)
 				else if((res.y() > 120 && res.y() < 180) || (res.y() > 300 && res.y() < 360))
 					cell.second.temperature +=4;
 				else
-					cell.second.temperature += 16;
+					cell.second.temperature += 20;
 			}
 		}
 	}
@@ -928,7 +922,6 @@ void SpecificWorker::updateTemperature(TObject o, int temp)
 {	
 	for ( auto cell = tables[processTable].tableMap.begin(); cell != tables[processTable].tableMap.end(); ++cell){
 		// Find the projection
-		//QVec pose = innermodel->transform(tables[processTable].name, o.pose, "world");
 		QVec pose = o.pose;
         QRect objProj(pose.z()-40, pose.x()-40, 80, 80);
 		QRect cellRect(cell->first.z, cell->first.x, CELL_WIDTH, CELL_HEIGHT);
@@ -936,10 +929,8 @@ void SpecificWorker::updateTemperature(TObject o, int temp)
         QRect i = cellRect.intersected(objProj);
         float area = (float)(i.width() * i.height());
 		// If the area is 0 there is no intersection
-        if(area > 0){
+        if(area > 0)
             cell->second.temperature = temp;
-			qDebug()<<"Update temp" << cell->first.x << cell->first.z << cell->second.temperature;
-		}
 	}
 }
 
