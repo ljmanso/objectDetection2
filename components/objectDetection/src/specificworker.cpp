@@ -98,7 +98,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		
 		t.id = 0;
 		t.pose = t1v;
-		t.temperature = 0;
+		t.temperature = -TEMP_TABLE;
 		t.name = "countertopA";
 		tables.push_back(t);
 
@@ -106,7 +106,6 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		QMat r2q = innermodel->getRotationMatrixTo("root", "countertopB");
 		fcl::Matrix3f R2(r2q(0,0), r2q(0,1), r2q(0,2), r2q(1,0), r2q(1,1), r2q(1,2), r2q(2,0), r2q(2,1), r2q(2,2));
 		QVec t2v = innermodel->getTranslationVectorTo("root", "countertopB");
-		t2v.print("t2v");
 		fcl::Vec3f T2(t2v(0), t2v(1), t2v(2));
 	
 		table2->collisionObject->setTransform(R2, T2);
@@ -119,6 +118,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		int width2 = box2.width();
 		int depth2 = box2.depth();
 
+		Table t1;
 		// Init map
 		for(int i=-depth2/2; i<depth2/2; i+=CELL_WIDTH)
 		{
@@ -126,15 +126,15 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 			{
 				QVec vector2 = QVec::vec3(j, 0, i);
 				QVec res2 = innermodel->transform("world", vector2, "countertopB");
-				t.tableMap.emplace(Key(i,j),Value {res2.x(), res2.y(), res2.z(), 0});
+				t1.tableMap.emplace(Key(j,i),Value {res2.x(), res2.y(), res2.z(), 0});
 			}
 		}
 		
-		t.id = 1;
-		t.pose = t2v;
-		t.temperature = 0;
-		t.name = "countertopB";
-		tables.push_back(t);
+		t1.id = 1;
+		t1.pose = t2v;
+		t1.temperature = 0;
+		t1.name = "countertopB";
+		tables.push_back(t1);
 
 		
 		for(uint a=0; a<100; a++)
@@ -196,7 +196,6 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		processTable = 0;
 		
 		posAttention = taza1.pose;
-		//centerAttention();
 		
 	#endif
 		
@@ -221,7 +220,7 @@ void SpecificWorker::compute()
     }
     catch(...) {}
 #endif
-    getYawMotorState();
+    getMotorState();
 
     //State machine
     switch(state)
@@ -459,19 +458,15 @@ void SpecificWorker::stress()
             QPoint error = synth.error;
             InnerModelTransform *t = innermodel->getTransform(synth.name);
 			float maxError = sqrt((error.y()*error.y()) + (error.x()*error.x()));
-			qDebug()<<"Error-----" << maxError;
 			if(maxError > 10.0)
 			{
 				//Warms the position on table where the object is
 				updateTemperature(synth, ZERO_TEMP);
-					
-				//qDebug()<<"		Update:" << synth.pose;
 				
 				// We assume that the cup does not vary in Y because it is on the table
 				innermodel->updateTranslationValues(synth.name, t->getTr().x() + error.y(), t->getTr().y(), t->getTr().z() + error.x());
 				InnerModelTransform *tn = innermodel->getTransform(synth.name);
 				synth.pose = QVec::vec6(tn->getTr().x() , tn->getTr().y(), tn->getTr().z(), 0, 0, 0);
-				//qDebug()<<"		New pose update:" << synth.pose;
 				//Cools the position on table where the object is
 				updateTemperature(synth, MIN_TEMP_OBJ);
 			}
@@ -718,15 +713,16 @@ void SpecificWorker::updatergbd(const RoboCompRGBD::ColorSeq &rgbMatrix, const R
     scene.update();
 }
 
-void SpecificWorker::getYawMotorState()
+void SpecificWorker::getMotorState()
 {
     try
     {
         RoboCompJointMotor::MotorState mstateMap = jointmotor_proxy->getMotorState("head_yaw_joint");
 		RoboCompJointMotor::MotorState mstateMapP = jointmotor_proxy->getMotorState("head_pitch_joint");
+		changeTable();
 		findPointAttention();
 		centerAttention();
-		//changeTable();
+		
 
         if(fabs(yawPosition - mstateMap.pos) > 0.05f || fabs(pitchPosition - mstateMapP.pos) > 0.05f)
             setState(States::Moving);
@@ -740,9 +736,38 @@ void SpecificWorker::getYawMotorState()
     }
 }
 
+void SpecificWorker::changeTable()
+{
+	qDebug() <<"Table " << processTable <<"  Temp: "<<tables[processTable].temperature;
+	bool changed = false;
+	for(uint i = 0; i< tables.size() && !changed; i++)
+	{
+		if(tables[i].temperature < -TEMP_TABLE){
+			int min = std::numeric_limits<int>::max();
+			int table = 0;
+			for(uint j = 0; j < tables.size(); j++)
+			{
+				if(tables[j].temperature < min)
+				{
+					min = tables[j].temperature;
+					table = j;
+				}
+			}
+			qDebug()<<"CAMBIO MESA";
+			processTable = table;
+			changed = true;
+		}
+		
+		if((uint)processTable == i)
+			tables[i].temperature ++;
+		else
+			tables[i].temperature --;
+	}
+}
+
 void SpecificWorker::findPointAttention()
 {
-	long minTemp = std::numeric_limits<int>::max();
+	int minTemp = std::numeric_limits<int>::max();
 	QVec coor;
 	for ( auto cell = tables[processTable].tableMap.begin(); cell != tables[processTable].tableMap.end(); ++cell )
 	{
@@ -755,50 +780,6 @@ void SpecificWorker::findPointAttention()
 	{
 		qDebug()<<"Celda nueva"<<coor << "temp:" << minTemp;
 		posAttention = coor;
-	}
-}
-
-void SpecificWorker::changeTable()
-{
-	//qDebug() <<"Table " << processTable <<"  Temp: "<<tables[processTable].temperature;
-	bool changed = false;
-	for(uint i= 0; i< tables.size() && !changed; i++)
-	{
-		if(tables[i].temperature < -TEMP_TABLE){
-			processTable = i;
-			changed = true;
-			
-			RoboCompJointMotor::MotorGoalPosition head_yaw_joint, head_pitch_joint;
-
-			head_yaw_joint.name = "head_yaw_joint"; 	//side to side
-			head_pitch_joint.name = "head_pitch_joint"; //up and down
-
-			QVec v = QVec::vec3(0, 0, 0);
-			QVec res = innermodel->transform("rgbd", v, tables[processTable].name);
-			posAttention = res;
-			
-			head_yaw_joint.position = atan2(res.x() , res.z());
-			head_pitch_joint.position = - atan2(res.y(), res.z());
-			
-			if(head_pitch_joint.position > 1)
-				head_pitch_joint.position = 1;
-			if(head_yaw_joint.position > 1)
-				head_yaw_joint.position = 1;
-
-			try
-			{
-				jointmotor_proxy->setPosition(head_yaw_joint);
-				jointmotor_proxy->setPosition(head_pitch_joint);
-				sleep(2); //wait for the engines
-			} catch(const Ice::Exception &e) {
-				std::cout << e <<endl;
-			}
-		}
-		
-		if((uint)processTable == i)
-			tables[i].temperature ++;
-		else
-			tables[i].temperature --;
 	}
 }
 
@@ -820,11 +801,14 @@ void SpecificWorker::centerAttention()
 		head_yaw_joint.position = mstateMap.pos + atan2(v.x() , v.z());
 		head_pitch_joint.position = mstateMap1.pos - atan2(v.y(), v.z());
 		
+		qDebug()<< "Yaw pos" << mstateMap.pos << head_yaw_joint.position << "Pitch pos" << mstateMap1.pos << head_pitch_joint.position;
+		
 		try
 		{
 			jointmotor_proxy->setPosition(head_yaw_joint);
 			jointmotor_proxy->setPosition(head_pitch_joint);
-			sleep(1); //wait for the engines
+			if(1-abs(mstateMap.pos) > 0.01 || 1-abs(mstateMap1.pos) > 0.01)
+				sleep(1); //wait for the engines
 		} catch(const Ice::Exception &e) {
 			std::cout << e <<endl;
 		}

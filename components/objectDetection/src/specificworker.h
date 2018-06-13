@@ -54,7 +54,7 @@
 #define MAX_OBJECTS 6
 #define CELL_WIDTH 40
 #define CELL_HEIGHT 40
-#define TEMP_TABLE 100
+#define TEMP_TABLE 50
 #define TEMP_CELL 200
 #define DIST 40
 
@@ -143,7 +143,7 @@ private:
 	void setDefaultHeadPosition(); 	// Initial head position 
 	void getRgbd();					// Gets camera information
 	void updateinner();				// Updates motor state
-	void getYawMotorState();		// Checks if yaw motor is moving
+	void getMotorState();		// Checks if yaw motor is moving
 	void findPointAttention(); 		// Finds the coolest point on the table that it is watching
 	void centerAttention();			// Try to center the camera center to posAttention
 	int getId(); 					// Returns the first free id
