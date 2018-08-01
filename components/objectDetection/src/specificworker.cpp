@@ -33,6 +33,7 @@ SpecificWorker::SpecificWorker(MapPrx& mprx) : GenericWorker(mprx)
     rz = 0;
 
     num_scene = 15;
+    
 #ifdef USE_QTGUI
     graphic->setScene(&scene);
     graphic->show();
@@ -58,15 +59,14 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 
 	
 	innerViewer = new InnerViewer(innerModelS);
-	//innerViewer->start();
 
     id_robot=QString::fromStdString(params[name+".id_robot"].value);
     id_camera=QString::fromStdString(params[name+".id_camera"].value);
     id_camera_transform=QString::fromStdString(params[name+".id_camera_transform"].value);
 
-	// Start map struct
 	#if FCL_SUPPORT==1
-		
+    
+		// Start first map struct
 		auto table = innermodel->getNode<InnerModelNode>("countertopA_mesh");
 		QMat r1q = innermodel->getRotationMatrixTo("root", "countertopA");
 		fcl::Matrix3f R1(r1q(0,0), r1q(0,1), r1q(0,2), r1q(1,0), r1q(1,1), r1q(1,2), r1q(2,0), r1q(2,1), r1q(2,2));
@@ -84,6 +84,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		int depth = box.depth();
 
 		Table t;
+        
 		// Init map
 
 		for(int i=-depth/2; i<depth/2; i+=CELL_WIDTH)
@@ -102,6 +103,7 @@ bool SpecificWorker::setParams(RoboCompCommonBehavior::ParameterList params)
 		t.name = "countertopA";
 		tables.push_back(t);
 
+        // Start second map struct
 		auto table2 = innermodel->getNode<InnerModelNode>("countertopB_mesh");
 		QMat r2q = innermodel->getRotationMatrixTo("root", "countertopB");
 		fcl::Matrix3f R2(r2q(0,0), r2q(0,1), r2q(0,2), r2q(1,0), r2q(1,1), r2q(1,2), r2q(2,0), r2q(2,1), r2q(2,2));
